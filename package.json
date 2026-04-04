@@ -17,6 +17,7 @@
     "electron-builder": "^24.0.0"
   },
   "build": {
+    "publish": null,
     "appId": "com.floatboard.app",
     "productName": "Floatboard",
     "directories": {
