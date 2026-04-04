@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.exe
+*.dmg
+*.blockmap
+.DS_Store
+Thumbs.db
+$outDir/

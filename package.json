@@ -1,0 +1,64 @@
+{
+  "name": "floatboard",
+  "version": "1.0.0",
+  "description": "Floating sticky card workspace",
+  "main": "main.js",
+  "author": "Manuel Conde",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:all": "electron-builder --win --mac",
+    "build:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.floatboard.app",
+    "productName": "Floatboard",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "floatboard.html",
+      "main.js",
+      "preload.js",
+      "package.json",
+      "icon.png"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Floatboard"
+    },
+    "portable": {
+      "artifactName": "Floatboard-portable.exe"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "title": "Floatboard",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    }
+  }
+}

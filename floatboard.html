@@ -1,0 +1,3043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>floatboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0f0f10;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+#canvas { position: fixed; inset: 0; overflow: hidden; }
+
+/* ── CARD ─────────────────────────────────────── */
+.card {
+  position: absolute;
+  width: 260px;
+  min-height: 80px;
+  background: #1a1a1e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0 12px 12px 0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s;
+  overflow: hidden;
+}
+.card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.7); }
+.card.dragging { opacity: 0.92; box-shadow: 0 20px 60px rgba(0,0,0,0.8); z-index: 9999 !important; transition: none; }
+.card.locked .card-header { opacity: 0.65; cursor: default; }
+.card.locked .card-header.grabbing { cursor: default; }
+.card.selected .card-header { background: #2a2a35; box-shadow: inset 0 -1px 0 rgba(255,255,255,0.06); }
+
+.card-accent {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: 0;
+  z-index: 1; pointer-events: none;
+}
+
+/* ── HEADER ───────────────────────────────────── */
+.card-header {
+  background: #222228;
+  padding: 10px 10px 10px 18px;
+  display: flex; align-items: center; gap: 6px;
+  cursor: grab; position: relative; min-height: 44px; flex-shrink: 0;
+}
+.card-header.grabbing { cursor: grabbing; }
+
+.card-title {
+  flex: 1; font-size: 13px; font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  outline: none; background: transparent; border: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; pointer-events: none;
+}
+.card-title[contenteditable="true"] {
+  pointer-events: auto; cursor: text;
+  white-space: nowrap; text-overflow: clip;
+}
+
+.lock-icon {
+  margin-right: 4px; font-size: 12px; opacity: 0.9; flex-shrink: 0;
+  line-height: 1; user-select: none; cursor: pointer; position: relative;
+}
+
+/* ── EMPTY STATE ──────────────────────────────── */
+#empty-state {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #3a3a44;
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  line-height: 1.7;
+  display: none;
+}
+
+.card-btn {
+  background: none; border: none; cursor: pointer; padding: 2px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px; opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  color: rgba(255,255,255,0.45); font-size: 14px;
+  width: 22px; height: 22px; flex-shrink: 0;
+}
+.card:hover .card-btn { opacity: 1; }
+.card-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); }
+.minimize-btn svg { transition: transform 0.2s; }
+/* Default (expanded): chevron points UP → "click to collapse"   */
+/* Minimized: rotate 180° → chevron points DOWN → "click to expand" */
+.card.minimized .minimize-btn svg { transform: rotate(180deg); }
+.delete-btn { color: rgba(255,100,100,0.55); }
+.delete-btn:hover { background: rgba(255,100,100,0.15) !important; color: #f87171 !important; }
+
+/* ── BODY ─────────────────────────────────────── */
+.card-body {
+  padding: 10px 14px 10px 18px;
+  overflow-y: auto; overflow-x: hidden;
+  flex: 1; min-height: 60px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.13) transparent;
+}
+.card-body::-webkit-scrollbar { width: 4px; }
+.card-body::-webkit-scrollbar-track { background: transparent; }
+.card-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.13); border-radius: 2px; }
+.card-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.26); }
+.card.minimized .card-body,
+.card.minimized .card-resize-handle { display: none; }
+
+/* ── BOTTOM RESIZE HANDLE ─────────────────────── */
+.card-resize-handle {
+  height: 8px; cursor: ns-resize; flex-shrink: 0;
+  position: relative; display: flex; align-items: center; justify-content: center;
+}
+.card-resize-handle::after {
+  content: ''; position: absolute; left: 25%; right: 25%;
+  height: 1px; background: rgba(255,255,255,0); border-radius: 1px;
+  transition: background 0.15s; pointer-events: none;
+}
+.card-resize-handle:hover::after,
+.card-resize-handle.resizing::after { background: rgba(255,255,255,0.2); }
+
+/* ── RIGHT EDGE RESIZE (todo/text) ────────────── */
+.card-edge-resize {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 6px;
+  cursor: ew-resize; z-index: 3; opacity: 0; transition: opacity 0.15s;
+}
+.card:hover .card-edge-resize { opacity: 1; }
+.card-edge-resize::after {
+  content: ''; position: absolute;
+  top: 20%; bottom: 20%; right: 1px; width: 2px;
+  background: rgba(255,255,255,0); border-radius: 1px; transition: background 0.15s;
+}
+.card-edge-resize:hover::after,
+.card-edge-resize.resizing::after { background: rgba(255,255,255,0.18); }
+
+/* ── CORNER RESIZE (image) ────────────────────── */
+.card-corner-resize {
+  position: absolute; bottom: 0; right: 0;
+  width: 22px; height: 22px; cursor: se-resize; z-index: 3;
+  opacity: 0; transition: opacity 0.15s;
+}
+.card:hover .card-corner-resize { opacity: 1; }
+.card-corner-resize::after {
+  content: ''; position: absolute; bottom: 5px; right: 5px;
+  width: 7px; height: 7px;
+  border-right: 2px solid rgba(255,255,255,0.3);
+  border-bottom: 2px solid rgba(255,255,255,0.3);
+  border-radius: 0 0 2px 0;
+}
+
+/* ── SNAP GUIDE LINES — generated inline by JS ── */
+
+/* ── TEXT CARD ────────────────────────────────── */
+.text-content {
+  font-size: 12.5px; color: rgba(255,255,255,0.7);
+  line-height: 1.6; outline: none; min-height: 60px; width: 100%;
+  word-break: break-word; cursor: text; user-select: text;
+}
+.text-content:focus { color: rgba(255,255,255,0.9); }
+.text-content:empty::before {
+  content: attr(data-placeholder); color: rgba(255,255,255,0.18); pointer-events: none;
+}
+
+/* ── FLOATING FORMAT TOOLBAR ──────────────────── */
+#fmt-toolbar {
+  position: fixed;
+  background: #2a2a32;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 4px 8px;
+  display: none;
+  flex-direction: row;
+  gap: 4px;
+  z-index: 10000;
+  pointer-events: auto;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+}
+#fmt-toolbar button {
+  width: 28px; height: 24px;
+  font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,0.55);
+  background: transparent; border: none;
+  border-radius: 4px; cursor: pointer;
+  font-family: inherit; line-height: 1;
+  transition: background 0.12s, color 0.12s;
+  display: flex; align-items: center; justify-content: center;
+}
+#fmt-toolbar button:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ── CONTEXT MENU ─────────────────────────────── */
+#ctx-menu {
+  position: fixed;
+  background: #2a2a32;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 4px;
+  min-width: 160px;
+  z-index: 99999;
+  display: none;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  user-select: none;
+}
+#ctx-menu.visible { display: flex; }
+.ctx-item {
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: #e8e8ea;
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+.ctx-item:hover { background: rgba(255,255,255,0.07); }
+.ctx-item.danger { color: #f87171; }
+.ctx-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  margin: 4px 0;
+}
+
+/* ── TODO CARD ────────────────────────────────── */
+.todo-list { display: flex; flex-direction: column; gap: 2px; list-style: none; }
+.todo-item {
+  display: flex; align-items: center; gap: 8px; padding: 3px 2px;
+  border-radius: 5px; position: relative; user-select: none;
+}
+.todo-item:hover { background: rgba(255,255,255,0.03); }
+.todo-item.drag-over { border-top: 2px solid rgba(255,255,255,0.25); }
+.drag-handle {
+  display: flex; align-items: center; opacity: 0; cursor: grab;
+  color: rgba(255,255,255,0.3); flex-shrink: 0; padding: 0 1px; transition: opacity 0.15s;
+}
+.todo-item:hover .drag-handle { opacity: 1; }
+.drag-handle:active { cursor: grabbing; }
+.todo-checkbox {
+  width: 15px; height: 15px; border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,0.2); flex-shrink: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.todo-checkbox.checked { border-color: var(--accent); background: var(--accent); }
+.todo-checkbox.checked::after {
+  content: ''; width: 8px; height: 5px;
+  border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translateY(-1px);
+}
+.todo-text {
+  flex: 1; font-size: 12.5px; color: rgba(255,255,255,0.8);
+  outline: none; background: transparent; border: none;
+  cursor: text; user-select: text; min-width: 0; word-break: break-word;
+}
+.todo-text:focus { color: rgba(255,255,255,0.95); }
+.todo-item.done .todo-text { text-decoration: line-through; opacity: 0.45; }
+.todo-delete {
+  opacity: 0; background: none; border: none; color: rgba(255,100,100,0.5);
+  cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1;
+  transition: opacity 0.15s, color 0.15s; flex-shrink: 0;
+}
+.todo-item:hover .todo-delete { opacity: 1; }
+.todo-delete:hover { color: #f87171; }
+.todo-add-row {
+  margin-top: 6px; display: flex; align-items: center; gap: 6px;
+  opacity: 0.32; transition: opacity 0.15s;
+}
+.todo-add-row:hover { opacity: 0.65; }
+.todo-add-input {
+  flex: 1; background: none; border: none; font-size: 12.5px;
+  color: rgba(255,255,255,0.8); outline: none; font-family: inherit;
+  cursor: text; user-select: text;
+}
+.todo-add-input::placeholder { color: rgba(255,255,255,0.35); }
+
+/* ── IMAGE CARD ───────────────────────────────── */
+.image-zone {
+  border: 1.5px dashed rgba(255,255,255,0.11); border-radius: 8px; min-height: 100px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  overflow: hidden; position: relative;
+}
+.image-zone:hover { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.02); }
+.image-zone img { width: 100%; height: auto; display: block; }
+.image-zone .upload-hint { display: flex; flex-direction: column; align-items: center; gap: 6px; color: rgba(255,255,255,0.28); font-size: 12px; }
+.image-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* ── SHARED BUTTON BASE ───────────────────────── */
+.tb-btn {
+  position: relative;
+  border-radius: 50%;
+  background: rgba(15,15,16,0.75);
+  border: 1px solid rgba(255,255,255,0.18);
+  backdrop-filter: blur(8px);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s, opacity 0.2s;
+  color: rgba(255,255,255,0.7); font-size: 15px; line-height: 1;
+}
+.tb-btn:hover {
+  background: rgba(40,40,48,0.9);
+  border-color: rgba(255,255,255,0.28);
+  color: #fff; transform: scale(1.08);
+  z-index: 99999;
+}
+.tb-btn:active { transform: scale(0.95); }
+.tb-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+/* Tooltip label — no native title attr, pure CSS */
+.tb-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0; left: auto;
+  background: #1e1e24;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; padding: 4px 9px;
+  font-size: 11px; font-weight: 500; line-height: 1.3; letter-spacing: 0;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  color: rgba(255,255,255,0.75);
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity 0.15s;
+  z-index: 99999;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.tb-btn[data-tip]:hover::after { opacity: 1; }
+/* Vertical Group B stack — tooltip to the LEFT so it can't be buried by adjacent buttons */
+#gb-pin[data-tip]::after,
+#gb-min[data-tip]::after,
+#gb-close[data-tip]::after {
+  right: calc(100% + 8px);
+  bottom: auto; top: 50%; transform: translateY(-50%);
+}
+
+/* ── ADD BUTTON — fixed pivot, always visible ─── */
+#add-btn {
+  position: fixed; bottom: 28px; right: 28px;
+  width: 48px; height: 48px; z-index: 1002;
+  border-radius: 50%; background: #6366f1; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 12px rgba(124,109,250,0.25);
+  transition: transform 0.2s, box-shadow 0.2s; color: #fff;
+}
+#add-btn:hover { transform: scale(1.08); box-shadow: 0 4px 18px rgba(124,109,250,0.35); }
+#add-btn.open  { transform: rotate(45deg); }
+
+/* ── EXPAND TOGGLE (···) — lives at diagonal, never moves ──── */
+/* Same 8px edge gap as the vertical group spacing             */
+#toolbar-expand {
+  position: fixed; bottom: 70px; right: 70px;
+  width: 38px; height: 38px; z-index: 1001;
+  font-size: 18px; letter-spacing: 2px;
+  background: rgba(15,15,16,0.85);
+  border: 1px solid rgba(255,255,255,0.22);
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+}
+#toolbar-expand:hover { transform: scale(1.08); }
+body.toolbar-open #toolbar-expand {
+  background: rgba(40,40,52,0.95);
+  border-color: rgba(255,255,255,0.35);
+  color: #fff;
+}
+
+/* ── TRAY BUTTONS — bottom row, fan out from ··· diagonal ──── */
+/* Collapsed: stack at ··· position. Gap = 8px between edges.  */
+#kofi-btn, #btn-snap, #undo-btn, #collect-btn {
+  position: fixed;
+  bottom: 70px; right: 70px;
+  width: 38px; height: 38px; z-index: 1001;
+  opacity: 0; pointer-events: none;
+  transition: right  0.35s cubic-bezier(0.34,1.15,0.64,1),
+              bottom 0.35s cubic-bezier(0.34,1.15,0.64,1),
+              opacity 0.22s ease,
+              background 0.2s, border-color 0.2s, color 0.2s,
+              transform 0.15s ease;
+}
+/* Ko-fi — brand SVG uses hardcoded fills, so hover via filter + border tint */
+#kofi-btn       { opacity: 0.75; }
+#kofi-btn:hover { opacity: 1 !important; border-color: rgba(255,90,22,0.45) !important; filter: brightness(1.08); }
+
+/* Opening — fan left along bottom edge, 8px gaps, staggered */
+/* Ko-fi is rightmost (slot 0), then snap, undo, collect      */
+body.toolbar-open #kofi-btn    { right: 98px;  bottom: 28px; opacity: 1; pointer-events: auto; transition-delay: 0ms;   }
+body.toolbar-open #btn-snap    { right: 144px; bottom: 28px; opacity: 1; pointer-events: auto; transition-delay: 40ms;  }
+body.toolbar-open #undo-btn    { right: 190px; bottom: 28px; opacity: 1; pointer-events: auto; transition-delay: 80ms;  }
+body.toolbar-open #collect-btn { right: 236px; bottom: 28px; opacity: 1; pointer-events: auto; transition-delay: 120ms; }
+/* Closing — reverse stagger */
+body:not(.toolbar-open) #collect-btn { transition-delay: 0ms;   }
+body:not(.toolbar-open) #undo-btn    { transition-delay: 40ms;  }
+body:not(.toolbar-open) #btn-snap    { transition-delay: 80ms;  }
+body:not(.toolbar-open) #kofi-btn    { transition-delay: 120ms; }
+
+/* Non-Electron: snap hidden, kofi+undo+collect fill from left */
+body.no-electron #btn-snap                   { display: none; }
+body.no-electron.toolbar-open #kofi-btn      { right: 98px;  transition-delay: 0ms;  }
+body.no-electron.toolbar-open #undo-btn      { right: 144px; transition-delay: 40ms; }
+body.no-electron.toolbar-open #collect-btn   { right: 190px; transition-delay: 80ms; }
+
+/* ── GROUP B BUTTONS — vertical stack above + ──── */
+/* Non-Electron: fully hidden                        */
+#gb-close, #gb-pin, #gb-min { display: none; }
+/* Electron: exist in DOM at ··· position, opacity 0, ready to animate */
+body.electron #gb-close,
+body.electron #gb-pin,
+body.electron #gb-min {
+  display: flex;
+  position: fixed;
+  bottom: 70px; right: 70px;
+  width: 38px; height: 38px; z-index: 1001;
+  opacity: 0; pointer-events: none;
+  transition: right  0.35s cubic-bezier(0.34,1.15,0.64,1),
+              bottom 0.35s cubic-bezier(0.34,1.15,0.64,1),
+              opacity 0.22s ease,
+              background 0.2s, border-color 0.2s, color 0.2s,
+              transform 0.15s ease;
+}
+/* Opening — stack up from + origin, staggered bottom→top */
+/* Order: pin closest to +, min above, close at top       */
+body.toolbar-open #gb-pin   { bottom: 98px;  right: 28px; opacity: 1; pointer-events: auto; transition-delay: 0ms;  }
+body.toolbar-open #gb-min   { bottom: 144px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 40ms; }
+body.toolbar-open #gb-close { bottom: 190px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 80ms; }
+/* Closing — reverse stagger */
+body:not(.toolbar-open) #gb-close { transition-delay: 0ms;  }
+body:not(.toolbar-open) #gb-min   { transition-delay: 40ms; }
+body:not(.toolbar-open) #gb-pin   { transition-delay: 80ms; }
+
+#gb-close:hover { background: rgba(248,113,113,0.2) !important; color: #f87171 !important; }
+#gb-pin.pinned  { color: #fff !important; border-color: rgba(255,255,255,0.4) !important; }
+
+/* ── SNAPPED LEFT — mirror all toolbar to left ── */
+body.snapped-left #add-btn        { right: auto; left: 28px; }
+body.snapped-left #toolbar-expand { right: auto; left: 70px; }
+body.snapped-left #picker         { right: auto; left: 28px; }
+
+body.snapped-left #kofi-btn,
+body.snapped-left #btn-snap,
+body.snapped-left #undo-btn,
+body.snapped-left #collect-btn    { right: auto; left: 70px; }
+
+body.snapped-left.toolbar-open #kofi-btn    { right: auto; left: 98px;  }
+body.snapped-left.toolbar-open #btn-snap    { right: auto; left: 144px; }
+body.snapped-left.toolbar-open #undo-btn    { right: auto; left: 190px; }
+body.snapped-left.toolbar-open #collect-btn { right: auto; left: 236px; }
+body.snapped-left:not(.toolbar-open) #collect-btn { right: auto; left: 70px; }
+body.snapped-left:not(.toolbar-open) #undo-btn    { right: auto; left: 70px; }
+body.snapped-left:not(.toolbar-open) #btn-snap    { right: auto; left: 70px; }
+body.snapped-left:not(.toolbar-open) #kofi-btn    { right: auto; left: 70px; }
+
+body.snapped-left.electron #gb-close,
+body.snapped-left.electron #gb-pin,
+body.snapped-left.electron #gb-min         { right: auto; left: 70px; }
+body.snapped-left.electron.toolbar-open #gb-pin   { right: auto; left: 28px; bottom: 98px;  }
+body.snapped-left.electron.toolbar-open #gb-min   { right: auto; left: 28px; bottom: 144px; }
+body.snapped-left.electron.toolbar-open #gb-close { right: auto; left: 28px; bottom: 190px; }
+
+/* Non-Electron snapped-left shifts */
+body.snapped-left.no-electron.toolbar-open #kofi-btn    { right: auto; left: 98px;  }
+body.snapped-left.no-electron.toolbar-open #undo-btn    { right: auto; left: 144px; }
+body.snapped-left.no-electron.toolbar-open #collect-btn { right: auto; left: 190px; }
+
+/* ── GROUP FRAME ──────────────────────────────── */
+.group-frame {
+  position: absolute;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 16px;
+  background: transparent;
+  pointer-events: auto;
+  box-sizing: border-box;
+  transition: border-color 0.3s ease;
+}
+.group-frame:hover {
+  border-color: rgba(255,255,255,0.38);
+}
+
+/* ── GROUP RIPPLE — formation burst ──────────── */
+.group-ripple {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99998;
+  transform: translate(-50%, -50%) scale(0);
+  animation: groupRipple 0.55s cubic-bezier(0.2, 0, 0.35, 1) forwards;
+}
+@keyframes groupRipple {
+  0%   { transform: translate(-50%, -50%) scale(0);   opacity: 0.65; }
+  55%  { transform: translate(-50%, -50%) scale(1);   opacity: 0.2;  }
+  100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0;   }
+}
+
+/* .card.grouped — reserved for future per-card group styling */
+.group-header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 36px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 10px 0 14px;
+  cursor: grab;
+  border-radius: 14px 14px 0 0;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  transition: border-color 0.3s ease;
+}
+.group-header.grabbing { cursor: grabbing; }
+.group-frame:hover .group-header { border-bottom-color: rgba(255,255,255,0.38); }
+.group-title {
+  flex: 1; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(255,255,255,0.2);
+  outline: none; background: transparent; border: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: inherit; min-width: 0; cursor: inherit;
+  transition: color 0.4s ease;
+}
+.group-frame:hover .group-title { color: rgba(255,255,255,0.55); }
+.group-title[contenteditable="true"] { cursor: text; color: rgba(255,255,255,0.85) !important; }
+.group-ungroup-btn {
+  position: relative;
+  width: 20px; height: 20px; border-radius: 4px;
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.2); opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.group-frame:hover .group-ungroup-btn { opacity: 1; pointer-events: auto; }
+.group-ungroup-btn:hover { color: #f87171; background: rgba(248,113,113,0.12); }
+.group-ungroup-btn::after {
+  content: 'Ungroup';
+  position: absolute;
+  bottom: calc(100% + 6px); right: 0;
+  background: #1e1e24;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; padding: 4px 9px;
+  font-size: 11px; font-weight: 500;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  color: rgba(255,255,255,0.75);
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity 0.15s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  z-index: 99999;
+}
+.group-ungroup-btn:hover::after { opacity: 1; }
+/* Hold-to-group/ungroup progress ring */
+.group-hold-ring {
+  position: absolute; border-radius: 50%;
+  pointer-events: none; z-index: 99990;
+}
+
+/* ── PICKER ───────────────────────────────────── */
+#picker {
+  position: fixed; bottom: 136px; right: 28px;
+  background: #1c1c22;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 6px; display: none; flex-direction: column;
+  gap: 3px; box-shadow: 0 12px 40px rgba(0,0,0,0.7); z-index: 1000;
+  min-width: 168px;
+  transform-origin: bottom right;
+  animation: pickerIn 0.18s cubic-bezier(0.34,1.3,0.64,1);
+}
+@keyframes pickerIn {
+  from { opacity: 0; transform: scale(0.88) translateY(6px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+}
+#picker.visible { display: flex; z-index: 1003; }
+.picker-btn {
+  background: none; border: none;
+  color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 500;
+  font-family: inherit; padding: 9px 12px; cursor: pointer; border-radius: 9px;
+  text-align: left; display: flex; align-items: center; gap: 11px;
+  transition: background 0.12s, color 0.12s; white-space: nowrap;
+  position: relative;
+}
+.picker-btn:hover {
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+}
+.picker-btn:hover .picker-icon { opacity: 1; }
+.picker-icon {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.85; transition: opacity 0.12s;
+}
+.picker-label { flex: 1; }
+.picker-arrow {
+  font-size: 11px; color: rgba(255,255,255,0.2);
+  transition: color 0.12s, transform 0.12s;
+  margin-left: 4px;
+}
+.picker-btn:hover .picker-arrow {
+  color: rgba(255,255,255,0.5);
+  transform: translateX(2px);
+}
+
+/* ── ELECTRON TITLEBAR — invisible strip (no drag — overlay stays fixed) ─── */
+#titlebar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 32px; z-index: 99999;
+  background: transparent;
+  -webkit-app-region: no-drag;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+<!-- Invisible drag strip — keeps window draggable from top edge in Electron -->
+<div id="titlebar"></div>
+<div id="canvas"></div>
+<div id="fmt-toolbar"></div>
+<div id="ctx-menu"></div>
+<div id="empty-state">press <strong style="color:#4a4a58">+</strong> to add a card</div>
+<div id="version-label" style="position:fixed;bottom:8px;left:12px;font-size:10px;color:rgba(255,255,255,0.12);pointer-events:none;user-select:none;z-index:1;letter-spacing:0.03em;">v1.0.0</div>
+
+<!-- Expand toggle — orbits to diagonal on open -->
+<button id="toolbar-expand" class="tb-btn" data-tip="More tools"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M10 14L3 21"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/></svg></button>
+
+<!-- Tray buttons — bottom row, fan out left from ··· position when open -->
+<button id="kofi-btn" class="tb-btn" data-tip="Support on Ko-fi">
+  <svg width="22" height="18" viewBox="0 0 241 194" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <mask id="kofi-mask" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="-1" y="0" width="242" height="194">
+      <path d="M240.469 0.958984H-0.00585938V193.918H240.469V0.958984Z" fill="white"/>
+    </mask>
+    <g mask="url(#kofi-mask)">
+      <path d="M96.1344 193.911C61.1312 193.911 32.6597 178.256 15.9721 149.829C1.19788 124.912 -0.00585938 97.9229 -0.00585938 67.7662C-0.00585938 49.8876 5.37293 34.3215 15.5413 22.7466C24.8861 12.1157 38.1271 5.22907 52.8317 3.35378C70.2858 1.14271 91.9848 0.958984 114.545 0.958984C151.259 0.958984 161.63 1.4088 176.075 2.85328C195.29 4.76026 211.458 11.932 222.824 23.5955C234.368 35.4428 240.469 51.2624 240.469 69.3627V72.9994C240.469 103.885 219.821 129.733 191.046 136.759C188.898 141.827 186.237 146.871 183.089 151.837L183.006 151.964C172.869 167.632 149.042 193.918 103.401 193.918H96.1281L96.1344 193.911Z" fill="white"/>
+      <path d="M174.568 17.9772C160.927 16.6151 151.38 16.1589 114.552 16.1589C90.908 16.1589 70.9008 16.387 54.7644 18.4334C33.3949 21.164 15.2058 37.5285 15.2058 67.7674C15.2058 98.0066 16.796 121.422 29.0741 142.107C42.9425 165.751 66.1302 178.707 96.1412 178.707H103.414C140.242 178.707 160.25 159.156 170.253 143.698C174.574 136.874 177.754 130.058 179.801 123.234C205.947 120.96 225.27 99.3624 225.27 72.9941V69.3577C225.27 40.9432 206.631 21.164 174.574 17.9772H174.568Z" fill="white"/>
+      <path d="M15.1975 67.7674C15.1975 37.5285 33.3866 21.164 54.7559 18.4334C70.8987 16.387 90.906 16.1589 114.544 16.1589C151.372 16.1589 160.919 16.6151 174.559 17.9772C206.617 21.1576 225.255 40.937 225.255 69.3577V72.9941C225.255 99.3687 205.932 120.966 179.786 123.234C177.74 130.058 174.559 136.874 170.238 143.698C160.235 159.156 140.228 178.707 103.4 178.707H96.1264C66.1155 178.707 42.9277 165.751 29.0595 142.107C16.7814 121.422 15.1912 98.4563 15.1912 67.7674" fill="#202020"/>
+      <path d="M32.2469 67.9899C32.2469 97.3168 34.0654 116.184 43.6127 133.689C54.5225 153.924 74.3018 161.653 96.8117 161.653H103.857C133.411 161.653 147.736 147.329 155.693 134.829C159.558 128.462 162.966 121.417 164.784 112.547L166.147 106.864H174.332C192.521 106.864 208.208 92.09 208.208 73.2166V69.8082C208.208 48.6669 195.024 37.5228 172.058 34.7987C159.102 33.6646 151.372 33.2084 114.538 33.2084C89.7602 33.2084 72.0272 33.4364 58.6152 35.4828C39.7483 38.2134 32.2407 48.8951 32.2407 67.9899" fill="white"/>
+      <path d="M166.158 83.6801C166.158 86.4107 168.204 88.4572 171.841 88.4572C183.435 88.4572 189.802 81.8619 189.802 70.9523C189.802 60.0427 183.435 53.2195 171.841 53.2195C168.204 53.2195 166.158 55.2657 166.158 57.9963V83.6866V83.6801Z" fill="#202020"/>
+      <path d="M54.5321 82.3198C54.5321 95.732 62.0332 107.326 71.5807 116.424C77.9478 122.562 87.9515 128.93 94.7685 133.022C96.8147 134.157 98.8611 134.841 101.136 134.841C103.866 134.841 106.134 134.157 107.959 133.022C114.782 128.93 124.779 122.562 130.919 116.424C140.694 107.332 148.195 95.7383 148.195 82.3198C148.195 67.7673 137.286 54.8115 121.599 54.8115C112.28 54.8115 105.912 59.5882 101.136 66.1772C96.8147 59.582 90.2259 54.8115 80.9001 54.8115C64.9855 54.8115 54.5256 67.7673 54.5256 82.3198" fill="#FF5A16"/>
+    </g>
+  </svg>
+</button>
+<button id="btn-snap" class="tb-btn" data-tip="Snap window">
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1 7h12M9 3l4 4-4 4M5 3L1 7l4 4"/>
+  </svg>
+</button>
+<button id="undo-btn"    class="tb-btn" data-tip="Undo" disabled>↩</button>
+<button id="collect-btn" class="tb-btn" data-tip="Collect cards">⊞</button>
+
+<!-- Group B — vertical stack above +, shown in Electron only -->
+<button id="gb-close" class="tb-btn" data-tip="Close">×</button>
+<button id="gb-pin"   class="tb-btn" data-tip="Pin on top">
+  <svg width="13" height="14" viewBox="0 0 13 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path id="gb-pin-head" d="M4 1h5M6.5 1v5L4.5 8h4l-2-2V1"/>
+    <line x1="6.5" y1="8" x2="6.5" y2="13"/>
+  </svg>
+</button>
+<button id="gb-min" class="tb-btn" data-tip="Minimize window">
+  <svg width="10" height="2" viewBox="0 0 10 2" fill="none"><line x1="0.5" y1="1" x2="9.5" y2="1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+</button>
+
+<button id="add-btn" title="Add card">
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  </svg>
+</button>
+<div id="picker">
+  <button class="picker-btn" data-type="todo">
+    <span class="picker-icon" style="background:rgba(124,109,250,0.18)">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7c6dfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1" y="1" width="4" height="4" rx="1"/>
+        <rect x="1" y="9" width="4" height="4" rx="1"/>
+        <line x1="7.5" y1="3" x2="13" y2="3"/>
+        <line x1="7.5" y1="11" x2="13" y2="11"/>
+        <line x1="7.5" y1="7" x2="10" y2="7"/>
+      </svg>
+    </span>
+    <span class="picker-label">Todo list</span>
+    <span class="picker-arrow">›</span>
+  </button>
+  <button class="picker-btn" data-type="text">
+    <span class="picker-icon" style="background:rgba(52,211,153,0.18)">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linecap="round">
+        <line x1="2" y1="3"  x2="12" y2="3"/>
+        <line x1="2" y1="6"  x2="12" y2="6"/>
+        <line x1="2" y1="9"  x2="9"  y2="9"/>
+        <line x1="2" y1="12" x2="10" y2="12"/>
+      </svg>
+    </span>
+    <span class="picker-label">Text note</span>
+    <span class="picker-arrow">›</span>
+  </button>
+  <button class="picker-btn" data-type="image">
+    <span class="picker-icon" style="background:rgba(251,191,36,0.18)">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1" y="2" width="12" height="10" rx="2"/>
+        <circle cx="4.5" cy="5.5" r="1.2"/>
+        <path d="M1 10l3-3 2 2 2.5-3 3.5 4"/>
+      </svg>
+    </span>
+    <span class="picker-label">Image</span>
+    <span class="picker-arrow">›</span>
+  </button>
+</div>
+
+<script>
+'use strict';
+
+const ACCENTS        = ['#7c6dfa','#34d399','#fbbf24','#f87171','#60a5fa','#f472b6'];
+const STORAGE_KEY    = 'floatboard_v3';
+const GROUPS_KEY     = 'floatboard_groups_v1';
+const SNAP_DIST      = 32;
+const SNAP_GAP       = 12;
+const DRAG_THRESH    = 6;
+const HISTORY_MAX    = 50;
+const GROUP_PAD      = 16;   // frame padding around member cards
+const GROUP_HEADER_H = 36;   // frame header height
+const GROUP_PROX     = 80;   // px center-to-center to trigger grouping
+const GROUP_HOLD_MS  = 500;  // ms to hold before group action fires
+
+let cards            = [];
+let groups           = [];
+let zCounter         = 10;
+let history          = [];
+let lastEditedCardId = null;
+let selectedCardId   = null;
+let isDragging       = false;
+let isResizing       = false;
+
+// ── STORAGE ───────────────────────────────────────────────────
+let _saveTimer = null;
+function save() {
+  const json = JSON.stringify({ cards, groups });
+  // Electron: persist to single file in home dir
+  if (window.electronAPI && window.electronAPI.saveData) {
+    window.electronAPI.saveData(json);
+  }
+  // Always mirror to localStorage as fallback
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+  localStorage.setItem(GROUPS_KEY,  JSON.stringify(groups));
+}
+function scheduleSave() { clearTimeout(_saveTimer); _saveTimer = setTimeout(save, 150); }
+
+// ── VIEWPORT CLAMP ────────────────────────────────────────────
+// Returns {x, y} clamped so the card stays fully within the viewport.
+function clampToViewport(x, y, w, h) {
+  const maxX = Math.max(0, window.innerWidth  - w);
+  const maxY = Math.max(0, window.innerHeight - h);
+  return { x: Math.max(0, Math.min(x, maxX)), y: Math.max(0, Math.min(y, maxY)) };
+}
+
+// ── EMPTY STATE ───────────────────────────────────────────────
+const emptyState = document.getElementById('empty-state');
+function updateEmptyState() {
+  emptyState.style.display = cards.length === 0 ? '' : 'none';
+}
+
+// Run on load and on window resize: nudge out-of-bounds cards back in,
+// and clamp any body heights that exceed the 90vh limit.
+function clampBodyHeights() {
+  cards.forEach(c => {
+    if (!c.bodyHeight) return;
+    const el = document.querySelector(`.card[data-id="${c.id}"]`);
+    if (!el) return;
+    const headerEl = el.querySelector('.card-header');
+    const headerH  = headerEl ? headerEl.offsetHeight : 44;
+    const maxByViewport = window.innerHeight - c.y - headerH - 8;
+    const maxByPercent  = Math.floor(window.innerHeight * 0.8);
+    const maxBodyH = Math.max(60, Math.min(maxByViewport, maxByPercent));
+    if (c.bodyHeight > maxBodyH) {
+      c.bodyHeight = Math.max(60, maxBodyH);
+      const bodyEl = el.querySelector('.card-body');
+      if (bodyEl) { bodyEl.style.flex = 'none'; bodyEl.style.height = c.bodyHeight + 'px'; }
+    }
+  });
+}
+
+function clampAllCards() {
+  cards.forEach(c => {
+    const el = document.querySelector(`.card[data-id="${c.id}"]`);
+    if (!el) return;
+    const clamped = clampToViewport(c.x, c.y, el.offsetWidth, el.offsetHeight);
+    if (clamped.x !== c.x || clamped.y !== c.y) {
+      c.x = clamped.x; c.y = clamped.y;
+      el.style.left = c.x + 'px'; el.style.top = c.y + 'px';
+    }
+  });
+  clampBodyHeights();
+}
+window.addEventListener('resize', () => { clampAllCards(); scheduleSave(); });
+
+// ── DEFAULTS ──────────────────────────────────────────────────
+function defaultCards() {
+  return [
+    {
+      id: uid(), type: 'todo', accent: '#7c6dfa', title: 'today',
+      minimized: false, locked: false, groupId: null, x: 20, y: 60, z: 10,
+      bodyHeight: null, cardWidth: null, snapParent: null, snapChildren: [],
+      items: [
+        {id:uid(),text:'dishes',done:false},
+        {id:uid(),text:'flip fill v1.0 adjustments',done:false},
+        {id:uid(),text:'send flip fill for review',done:false},
+        {id:uid(),text:'finish DGO images',done:false},
+        {id:uid(),text:'2 missing DGO sections layout',done:false},
+        {id:uid(),text:'Framer section experiment',done:false},
+        {id:uid(),text:'if works → Framer community',done:false},
+        {id:uid(),text:'Aseprite scripts',done:false},
+        {id:uid(),text:'dog walkie 16:30',done:false},
+      ]
+    },
+    {
+      id: uid(), type: 'text', accent: '#34d399', title: 'web libs',
+      minimized: false, locked: false, groupId: null, x: 300, y: 60, z: 11,
+      bodyHeight: null, cardWidth: null, snapParent: null, snapChildren: [],
+      content: 'Aceternity UI → ui.aceternity.com\nMagic UI → magicui.design\nHover.dev → hover.dev\nUI Layout → ui-layout.com\nGSAP Showcase → gsap.com/showcase\nLottie → lottiefiles.com\nCult UI → cult-ui.com'
+    }
+  ];
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function uid()        { return Math.random().toString(36).slice(2,9) + Date.now().toString(36); }
+function randAccent() { return ACCENTS[Math.floor(Math.random() * ACCENTS.length)]; }
+
+function _hydrateCards(rawCards) {
+  rawCards.forEach(c => {
+    // Migrate old snapLinks format
+    if (c.snapLinks !== undefined) {
+      if (!c.snapParent && c.snapLinks.length)
+        c.snapParent = { id: c.snapLinks[0].toId, edge: c.snapLinks[0].myEdge };
+      delete c.snapLinks;
+    }
+    if (c.snapParent   === undefined) c.snapParent  = null;
+    if (!c.snapChildren)              c.snapChildren = [];
+    if (c.locked       === undefined) c.locked       = false;
+    if (c.groupId      === undefined) c.groupId      = null;
+  });
+  // Rebuild snapChildren from snapParent (snapParent is source of truth)
+  rawCards.forEach(c => {
+    if (!c.snapParent) return;
+    const parent = rawCards.find(p => p.id === c.snapParent.id);
+    if (!parent) { c.snapParent = null; return; }
+    if (!parent.snapChildren.some(ch => ch.id === c.id))
+      parent.snapChildren.push({ id: c.id, edge: c.snapParent.edge });
+  });
+  return rawCards;
+}
+
+function _sanitizeGroups(grps) {
+  grps = grps.filter(g => {
+    g.memberIds = g.memberIds.filter(id => cards.some(c => c.id === id));
+    if (g.memberIds.length < 2) {
+      g.memberIds.forEach(id => { const c = cards.find(cc => cc.id === id); if (c) c.groupId = null; });
+      return false;
+    }
+    return true;
+  });
+  cards.forEach(c => {
+    if (c.groupId && !grps.some(g => g.id === c.groupId)) c.groupId = null;
+  });
+  return grps;
+}
+
+async function load() {
+  let loaded = false;
+
+  // Electron: try file-based storage first (single source of truth)
+  if (window.electronAPI && window.electronAPI.loadData) {
+    try {
+      const result = await window.electronAPI.loadData();
+      if (result.ok && result.data) {
+        const parsed = JSON.parse(result.data);
+        cards  = _hydrateCards(parsed.cards || []);
+        groups = _sanitizeGroups(parsed.groups || []);
+        loaded = true;
+      }
+    } catch(e) { console.warn('File load failed, falling back to localStorage', e); }
+  }
+
+  // Fallback: localStorage
+  if (!loaded) {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        cards = _hydrateCards(JSON.parse(raw));
+      } else {
+        cards = defaultCards();
+      }
+    } catch(e) { cards = defaultCards(); }
+
+    try {
+      const raw = localStorage.getItem(GROUPS_KEY);
+      groups = raw ? JSON.parse(raw) : [];
+    } catch(e) { groups = []; }
+    groups = _sanitizeGroups(groups);
+  }
+
+  if (cards.length === 0) cards = defaultCards();
+}
+
+// ── HISTORY ───────────────────────────────────────────────────
+// Full-state snapshots. Max 50 items.
+// Text input uses a 1500 ms debounce so a typing burst = one snapshot.
+// Ctrl+Z inside contenteditable uses native browser undo (not intercepted).
+const undoBtn = document.getElementById('undo-btn');
+
+function pushHistory() {
+  // Strip imageData from snapshots — images don't need to be undone and bloat memory.
+  const cardSnap = cards.map(c => {
+    if (c.type !== 'image') return c;
+    const { imageData, ...rest } = c;
+    return rest;
+  });
+  history.push(JSON.stringify({ cards: cardSnap, groups }));
+  if (history.length > HISTORY_MAX) history.shift();
+  undoBtn.disabled = false;
+}
+
+function undoState() {
+  if (!history.length) return;
+  const raw = JSON.parse(history.pop());
+  // Support both old format (plain array) and new format ({cards, groups})
+  const restoredCards  = Array.isArray(raw) ? raw        : (raw.cards  || []);
+  const restoredGroups = Array.isArray(raw) ? []         : (raw.groups || []);
+  // Re-inject imageData from current state by id
+  restoredCards.forEach(c => {
+    if (c.type === 'image') {
+      const cur = cards.find(x => x.id === c.id);
+      if (cur) c.imageData = cur.imageData;
+    }
+  });
+  cards  = restoredCards;
+  groups = restoredGroups;
+  zCounter = Math.max(zCounter, ...cards.map(c => c.z || 0));
+  renderAll();
+  updateEmptyState();
+  save();
+  undoBtn.disabled = history.length === 0;
+}
+
+function touchLastEdited(id) { lastEditedCardId = id; }
+
+undoBtn.addEventListener('click', e => { e.stopPropagation(); undoState(); });
+
+// ── SPAWN POSITION ────────────────────────────────────────────
+// Always spawn above the + button (bottom-right). lastEditedCard snap runs after.
+function getSpawnPos(cardWidth) {
+  const w   = cardWidth || 260;
+  const raw = { x: window.innerWidth - w - 28, y: window.innerHeight - 320 - 88 };
+  return clampToViewport(raw.x, raw.y, w, 200);
+}
+
+// ── SPRING ANIMATION ──────────────────────────────────────────
+// Animates card DOM position from current rendered position → (targetX, targetY).
+// Card data (x/y) must already be set to target before calling.
+// Physics: stiffness K=280, damping D=24 (slightly underdamped).
+// Stops when velocity < 0.5 and distance < 0.5.
+function springElTo(cardData, cardEl, targetX, targetY) {
+  if (cardData._springRaf) {
+    cancelAnimationFrame(cardData._springRaf);
+    cardData._springRaf = null;
+  }
+  let cx = parseFloat(cardEl.style.left) || targetX;
+  let cy = parseFloat(cardEl.style.top)  || targetY;
+  let vx = 0, vy = 0;
+  const K = 280, D = 24, DT = 1/60;
+
+  function tick() {
+    vx += (K * (targetX - cx) - D * vx) * DT;
+    vy += (K * (targetY - cy) - D * vy) * DT;
+    cx += vx * DT;
+    cy += vy * DT;
+    cardEl.style.left = cx + 'px';
+    cardEl.style.top  = cy + 'px';
+    if (Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5 &&
+        Math.abs(targetX - cx) < 0.5 && Math.abs(targetY - cy) < 0.5) {
+      cardEl.style.left = targetX + 'px';
+      cardEl.style.top  = targetY + 'px';
+      cardData._springRaf = null;
+      return;
+    }
+    cardData._springRaf = requestAnimationFrame(tick);
+  }
+  cardData._springRaf = requestAnimationFrame(tick);
+}
+
+// ── SNAP COMPUTATION ──────────────────────────────────────────
+function computeSnap(rawX, rawY, dragW, dragH, excludeId) {
+  let sx = rawX, sy = rawY;
+  const links = [], lines = [];
+
+  for (const other of cards) {
+    if (other.id === excludeId) continue;
+    const otherEl = document.querySelector(`.card[data-id="${other.id}"]`);
+    if (!otherEl) continue;
+    const ow = otherEl.offsetWidth, oh = otherEl.offsetHeight;
+    const ox = other.x, oy = other.y;
+
+    // One card can only contribute one snap axis at a time.
+    // If a horizontal snap triggers, skip vertical for this same card (and vice versa).
+    let hSnapped = false;
+
+    // Horizontal snap
+    let lineX = null, hLink = null;
+    if (Math.abs((rawX + dragW + SNAP_GAP) - ox) < SNAP_DIST) {
+      sx = ox - dragW - SNAP_GAP; lineX = ox;
+      hLink = { toId: other.id, myEdge: 'right', targetEdge: 'left' };
+    } else if (Math.abs(rawX - (ox + ow + SNAP_GAP)) < SNAP_DIST) {
+      sx = ox + ow + SNAP_GAP; lineX = ox + ow;
+      hLink = { toId: other.id, myEdge: 'left', targetEdge: 'right' };
+    }
+    if (lineX !== null) {
+      const yOpts = [
+        { d: Math.abs(rawY - oy),                    y: oy                            },
+        { d: Math.abs((rawY+dragH) - (oy+oh)),       y: oy+oh-dragH                   },
+        { d: Math.abs((rawY+dragH/2) - (oy+oh/2)),   y: Math.round(oy+oh/2-dragH/2)  },
+      ];
+      const bestY = yOpts.reduce((a,b) => a.d < b.d ? a : b);
+      if (bestY.d < SNAP_DIST) sy = bestY.y;
+      lines.push({ dir: 'v', pos: lineX, center: Math.round((rawY + dragH/2 + oy + oh/2) / 2) });
+      links.push(hLink);
+      hSnapped = true;
+    }
+
+    // Vertical snap — skipped if this card already contributed a horizontal snap
+    if (!hSnapped) {
+      let lineY = null, vLink = null;
+      if (Math.abs((rawY + dragH + SNAP_GAP) - oy) < SNAP_DIST) {
+        sy = oy - dragH - SNAP_GAP; lineY = oy;
+        vLink = { toId: other.id, myEdge: 'bottom', targetEdge: 'top' };
+      } else if (Math.abs(rawY - (oy + oh + SNAP_GAP)) < SNAP_DIST) {
+        sy = oy + oh + SNAP_GAP; lineY = oy + oh;
+        vLink = { toId: other.id, myEdge: 'top', targetEdge: 'bottom' };
+      }
+      if (lineY !== null) {
+        const xOpts = [
+          { d: Math.abs(rawX - ox),                    x: ox                            },
+          { d: Math.abs((rawX+dragW) - (ox+ow)),       x: ox+ow-dragW                   },
+          { d: Math.abs((rawX+dragW/2) - (ox+ow/2)),   x: Math.round(ox+ow/2-dragW/2)  },
+        ];
+        const bestX = xOpts.reduce((a,b) => a.d < b.d ? a : b);
+        if (bestX.d < SNAP_DIST) sx = bestX.x;
+        lines.push({ dir: 'h', pos: lineY, center: Math.round((rawX + dragW/2 + ox + ow/2) / 2) });
+        links.push(vLink);
+      }
+    }
+  }
+
+  return { x: sx, y: sy, links, lines };
+}
+
+// ── SNAP GRAPH ────────────────────────────────────────────────
+// Edge semantics (from the CHILD card's perspective):
+//   'top'    → child's top    touches parent's bottom  → child is BELOW parent
+//   'bottom' → child's bottom touches parent's top     → child is ABOVE parent
+//   'left'   → child's left   touches parent's right   → child is RIGHT OF parent
+//   'right'  → child's right  touches parent's left    → child is LEFT OF parent
+//
+// Axis isolation rule:
+//   Vertical edges   ('top','bottom') → only Y is recomputed on Y-axis changes.
+//   Horizontal edges ('left','right') → only X is recomputed on X-axis changes.
+//   Neither axis propagates to the other axis. Two spatially adjacent cards are
+//   NOT in the same chain unless the user explicitly snapped them together.
+
+// Cascade reflow all snap descendants of anchorId.
+// useSpring=true → animate with spring (collapse/expand, collect, drag-end).
+// Stops chain at viewport boundary — does not push overflow to next card.
+function cascadeReflow(anchorId, visited = new Set(), useSpring = false) {
+  if (visited.has(anchorId)) return;
+  visited.add(anchorId);
+
+  const anchor = cards.find(c => c.id === anchorId);
+  if (!anchor || !anchor.snapChildren || !anchor.snapChildren.length) return;
+
+  const anchorEl = document.querySelector(`.card[data-id="${anchorId}"]`);
+  if (!anchorEl) return;
+  const anchorW = anchorEl.offsetWidth;
+  const anchorH = anchorEl.offsetHeight;
+
+  for (const { id: childId, edge } of anchor.snapChildren) {
+    const child = cards.find(c => c.id === childId);
+    if (!child) continue;
+    // Don't let external snap parents push cards that belong to a group
+    if (child.groupId && child.groupId !== (anchor.groupId || '')) continue;
+    const childEl = document.querySelector(`.card[data-id="${childId}"]`);
+    if (!childEl) continue;
+    const childW = childEl.offsetWidth;
+    const childH = childEl.offsetHeight;
+
+    let tx = child.x, ty = child.y;
+
+    // Axis isolation: vertical edges only update Y, horizontal edges only update X
+    if      (edge === 'top')    ty = anchor.y + anchorH + SNAP_GAP;
+    else if (edge === 'bottom') ty = anchor.y - childH  - SNAP_GAP;
+    else if (edge === 'left')   tx = anchor.x + anchorW + SNAP_GAP;
+    else if (edge === 'right')  tx = anchor.x - childW  - SNAP_GAP;
+
+    // Clamp to viewport. If clamping is needed, stop this branch of the chain.
+    const clamped = clampToViewport(tx, ty, childW, childH);
+    const wasClamped = clamped.x !== tx || clamped.y !== ty;
+    tx = clamped.x; ty = clamped.y;
+
+    child.x = tx; child.y = ty;
+
+    if (useSpring && !isDragging && !isResizing) {
+      springElTo(child, childEl, tx, ty);
+    } else {
+      if (child._springRaf) { cancelAnimationFrame(child._springRaf); child._springRaf = null; }
+      childEl.style.left = tx + 'px';
+      childEl.style.top  = ty + 'px';
+    }
+
+    // Stop recursion on this branch if we hit a wall
+    if (!wasClamped) cascadeReflow(childId, visited, useSpring);
+  }
+}
+
+// Detach card from snap graph at drag start.
+// Re-parents same-direction children to grandparent (closes gap).
+function detachFromSnapGraph(data) {
+  const parentRef = data.snapParent;
+  const parent    = parentRef ? cards.find(c => c.id === parentRef.id) : null;
+  const myEdge    = parentRef ? parentRef.edge : null;
+
+  if (parent) parent.snapChildren = parent.snapChildren.filter(ch => ch.id !== data.id);
+
+  for (const { id: childId, edge } of (data.snapChildren || [])) {
+    const child = cards.find(c => c.id === childId);
+    if (!child) continue;
+    if (parent && edge === myEdge) {
+      child.snapParent = { id: parent.id, edge };
+      parent.snapChildren.push({ id: childId, edge });
+    } else {
+      child.snapParent = null;
+    }
+  }
+
+  if (parent) cascadeReflow(parent.id); // instant — gap closes during drag
+  data.snapParent  = null;
+  data.snapChildren = [];
+}
+
+// Attach card to snap graph at drag-end or spawn.
+// Handles chain insertion: if parent already has a child at this edge,
+// the dropped card slides between them (only within the same snap chain).
+function attachToSnapGraph(data, snapLinks, useSpring = false) {
+  if (!snapLinks || !snapLinks.length) return;
+  const link   = snapLinks[0];
+  const parent = cards.find(c => c.id === link.toId);
+  if (!parent) return;
+  const edge = link.myEdge;
+
+  const existingRef = (parent.snapChildren || []).find(ch => ch.edge === edge);
+  if (existingRef) {
+    const existing = cards.find(c => c.id === existingRef.id);
+    parent.snapChildren = parent.snapChildren.filter(ch => ch.id !== existingRef.id);
+    if (existing) {
+      existing.snapParent = { id: data.id, edge };
+      data.snapChildren   = [{ id: existingRef.id, edge }];
+    }
+  }
+
+  data.snapParent = { id: parent.id, edge };
+  if (!parent.snapChildren) parent.snapChildren = [];
+  parent.snapChildren.push({ id: data.id, edge });
+
+  cascadeReflow(data.id, new Set(), useSpring);
+}
+
+// rAF-gated reflow for resize hot path (max once per frame)
+let _reflowRaf = null;
+function scheduleReflow(id) {
+  if (_reflowRaf) cancelAnimationFrame(_reflowRaf);
+  _reflowRaf = requestAnimationFrame(() => { _reflowRaf = null; cascadeReflow(id); });
+}
+
+// ── GROUP SYSTEM ──────────────────────────────────────────────
+
+// Parse a hex color '#rrggbb' or '#rgb' → 'r, g, b' string for CSS rgba()
+function hexToRgbStr(hex) {
+  const h = hex.replace('#', '');
+  let r, g, b;
+  if (h.length === 3) {
+    r = parseInt(h[0]+h[0], 16);
+    g = parseInt(h[1]+h[1], 16);
+    b = parseInt(h[2]+h[2], 16);
+  } else {
+    r = parseInt(h.slice(0,2), 16);
+    g = parseInt(h.slice(2,4), 16);
+    b = parseInt(h.slice(4,6), 16);
+  }
+  return isNaN(r) ? '255,255,255' : `${r},${g},${b}`;
+}
+
+// ── Group frame geometry ──────────────────────────────────────
+function getGroupBounds(group) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let found = false;
+  for (const id of group.memberIds) {
+    const c  = cards.find(cc => cc.id === id);
+    const el = document.querySelector(`.card[data-id="${id}"]`);
+    if (!c || !el) continue;
+    found = true;
+    minX = Math.min(minX, c.x);
+    minY = Math.min(minY, c.y);
+    maxX = Math.max(maxX, c.x + el.offsetWidth);
+    maxY = Math.max(maxY, c.y + el.offsetHeight);
+  }
+  return found ? { minX, minY, maxX, maxY } : null;
+}
+
+// ── Group frame DOM ───────────────────────────────────────────
+function buildGroupFrame(group) {
+  const bounds = getGroupBounds(group);
+  if (!bounds) return null;
+  const { minX, minY, maxX, maxY } = bounds;
+
+  const frame = document.createElement('div');
+  frame.className = 'group-frame';
+  frame.dataset.groupId = group.id;
+
+  const minZ = Math.max(1, Math.min(...group.memberIds
+    .map(id => (cards.find(c => c.id === id) || {}).z || 1)) - 1);
+
+  // Clamp frame so header is never off-screen
+  let frameLeft = minX - GROUP_PAD;
+  let frameTop  = minY - GROUP_PAD - GROUP_HEADER_H;
+  const shiftX  = frameLeft < 0 ? -frameLeft : 0;
+  const shiftY  = frameTop  < 0 ? -frameTop  : 0;
+  if (shiftX || shiftY) {
+    group.memberIds.forEach(id => {
+      const c  = cards.find(cc => cc.id === id);
+      const el = c && document.querySelector(`.card[data-id="${id}"]`);
+      if (!c || !el) return;
+      c.x += shiftX; c.y += shiftY;
+      el.style.left = c.x + 'px'; el.style.top = c.y + 'px';
+    });
+    frameLeft += shiftX; frameTop += shiftY;
+  }
+  frame.style.cssText = [
+    `left:${frameLeft}px`,
+    `top:${frameTop}px`,
+    `width:${maxX - minX + GROUP_PAD * 2}px`,
+    `height:${maxY - minY + GROUP_PAD * 2 + GROUP_HEADER_H}px`,
+    `z-index:${minZ}`,
+    `--ga:${hexToRgbStr(group.accent)}`
+  ].join(';');
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.className = 'group-header';
+
+  const titleEl = document.createElement('div');
+  titleEl.className   = 'group-title';
+  titleEl.textContent = group.title || 'group';
+  titleEl.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    titleEl.setAttribute('contenteditable', 'true');
+    titleEl.focus();
+    const sel = window.getSelection(), r = document.createRange();
+    r.selectNodeContents(titleEl); sel.removeAllRanges(); sel.addRange(r);
+  });
+  titleEl.addEventListener('blur', () => {
+    titleEl.removeAttribute('contenteditable');
+    group.title = titleEl.textContent.trim() || 'group';
+    save();
+  });
+  titleEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+    e.stopPropagation();
+  });
+  titleEl.addEventListener('mousedown', e => {
+    if (titleEl.hasAttribute('contenteditable')) e.stopPropagation();
+  });
+
+  const ungroupBtn = document.createElement('button');
+  ungroupBtn.className = 'group-ungroup-btn';
+  ungroupBtn.title     = 'Dissolve group';
+  ungroupBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="4.5" height="4.5" rx="1"/><rect x="6.5" y="6.5" width="4.5" height="4.5" rx="1"/></svg>`;
+  ungroupBtn.addEventListener('mousedown', e => e.stopPropagation());
+  ungroupBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    pushHistory();
+    dissolveGroup(group.id);
+    save();
+  });
+
+  hdr.appendChild(titleEl);
+  hdr.appendChild(ungroupBtn);
+  frame.appendChild(hdr);
+  makeGroupDraggable(hdr, group);
+
+  frame.addEventListener('contextmenu', e => {
+    e.preventDefault(); e.stopPropagation();
+    showGroupCtxMenu(group.id, e.clientX, e.clientY);
+  });
+
+  return frame;
+}
+
+function _insertGroupFrame(group, frame) {
+  const canvas = document.getElementById('canvas');
+  const firstMemberEl = document.querySelector(`.card[data-id="${group.memberIds[0]}"]`);
+  if (firstMemberEl) canvas.insertBefore(frame, firstMemberEl);
+  else canvas.appendChild(frame);
+}
+
+function renderGroupFrames() {
+  groups.forEach(group => {
+    const frame = buildGroupFrame(group);
+    if (frame) _insertGroupFrame(group, frame);
+  });
+}
+
+function updateGroupFrame(groupId) {
+  const group = groups.find(g => g.id === groupId);
+  if (!group) return;
+  const frame = document.querySelector(`.group-frame[data-group-id="${groupId}"]`);
+  if (!frame) {
+    const f = buildGroupFrame(group);
+    if (f) _insertGroupFrame(group, f);
+    return;
+  }
+  const bounds = getGroupBounds(group);
+  if (!bounds) return;
+  const { minX, minY, maxX, maxY } = bounds;
+  // Clamp frame so header is never off-screen
+  let frameLeft = minX - GROUP_PAD;
+  let frameTop  = minY - GROUP_PAD - GROUP_HEADER_H;
+  const shiftX  = frameLeft < 0 ? -frameLeft : 0;
+  const shiftY  = frameTop  < 0 ? -frameTop  : 0;
+  if (shiftX || shiftY) {
+    group.memberIds.forEach(id => {
+      const c  = cards.find(cc => cc.id === id);
+      const el = c && document.querySelector(`.card[data-id="${id}"]`);
+      if (!c || !el) return;
+      c.x += shiftX; c.y += shiftY;
+      el.style.left = c.x + 'px'; el.style.top = c.y + 'px';
+    });
+    frameLeft += shiftX; frameTop += shiftY;
+  }
+  frame.style.left   = frameLeft + 'px';
+  frame.style.top    = frameTop + 'px';
+  frame.style.width  = (maxX - minX + GROUP_PAD * 2) + 'px';
+  frame.style.height = (maxY - minY + GROUP_PAD * 2 + GROUP_HEADER_H) + 'px';
+  frame.style.setProperty('--ga', hexToRgbStr(group.accent));
+}
+
+function removeGroupFrameEl(groupId) {
+  const f = document.querySelector(`.group-frame[data-group-id="${groupId}"]`);
+  if (f) f.remove();
+}
+
+// Resolve overlaps between group members after a card changes height.
+// Only moves cards that are ACTUALLY overlapping — never displaces non-overlapping cards.
+function resolveGroupOverlaps(groupId) {
+  const g = groups.find(gg => gg.id === groupId);
+  if (!g || g.memberIds.length < 2) return;
+  const members = g.memberIds.map(id => ({
+    c:  cards.find(cc => cc.id === id),
+    el: document.querySelector(`.card[data-id="${id}"]`)
+  })).filter(m => m.c && m.el);
+  if (members.length < 2) return;
+
+  // Sort top-to-bottom so we cascade pushes in one pass
+  members.sort((a, b) => a.c.y !== b.c.y ? a.c.y - b.c.y : a.c.x - b.c.x);
+
+  let moved = false;
+  for (let i = 0; i < members.length - 1; i++) {
+    const a = members[i];
+    for (let j = i + 1; j < members.length; j++) {
+      const b = members[j];
+      // Check actual pixel overlap on both axes
+      const ox = a.c.x < b.c.x + b.el.offsetWidth  && a.c.x + a.el.offsetWidth  > b.c.x;
+      const oy = a.c.y < b.c.y + b.el.offsetHeight && a.c.y + a.el.offsetHeight > b.c.y;
+      if (!ox || !oy) continue; // no overlap — leave untouched
+
+      // Push in whichever axis requires the least travel
+      const pushY = (a.c.y + a.el.offsetHeight + SNAP_GAP) - b.c.y;
+      const pushX = (a.c.x + a.el.offsetWidth  + SNAP_GAP) - b.c.x;
+      if (pushY <= pushX) {
+        b.c.y += pushY;
+        springElTo(b.c, b.el, b.c.x, b.c.y);
+      } else {
+        b.c.x += pushX;
+        springElTo(b.c, b.el, b.c.x, b.c.y);
+      }
+      moved = true;
+    }
+  }
+  if (moved) requestAnimationFrame(() => updateGroupFrame(groupId));
+}
+
+// Flash a ripple burst between two cards when a group forms
+function showGroupRipple(cardA, cardB) {
+  const elA = document.querySelector(`.card[data-id="${cardA.id}"]`);
+  const elB = document.querySelector(`.card[data-id="${cardB.id}"]`);
+  if (!elA || !elB) return;
+  const rA = elA.getBoundingClientRect();
+  const rB = elB.getBoundingClientRect();
+  const cx = (rA.left + rA.right + rB.left + rB.right) / 4;
+  const cy = (rA.top  + rA.bottom + rB.top + rB.bottom) / 4;
+  const dx = rA.left + rA.width / 2 - cx;
+  const dy = rA.top  + rA.height / 2 - cy;
+  const size = Math.hypot(dx, dy) * 2 + Math.max(rA.width, rB.width) + 80;
+
+  const ripple = document.createElement('div');
+  ripple.className = 'group-ripple';
+  ripple.style.cssText = `left:${cx}px;top:${cy}px;width:${size}px;height:${size}px;border:2px solid rgba(255,255,255,0.25)`;
+  document.body.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 650);
+}
+
+// ── Group management ──────────────────────────────────────────
+function createGroup(cardA, cardB) {
+  if (cardA.groupId && cardA.groupId === cardB.groupId) return;
+  if (cardB.groupId) { addToGroup(cardB.groupId, cardA); return; }
+  if (cardA.groupId) { addToGroup(cardA.groupId, cardB); return; }
+
+  const g = { id: uid(), title: 'group', accent: cardA.accent, memberIds: [cardA.id, cardB.id] };
+  groups.push(g);
+  cardA.groupId = g.id;
+  cardB.groupId = g.id;
+
+  // Auto-arrange: if cards overlap, reposition cardA so they don't collide
+  const elA = document.querySelector(`.card[data-id="${cardA.id}"]`);
+  const elB = document.querySelector(`.card[data-id="${cardB.id}"]`);
+  if (elA && elB) {
+    const wA = elA.offsetWidth, hA = elA.offsetHeight;
+    const wB = elB.offsetWidth, hB = elB.offsetHeight;
+    const overlapH = cardA.x < cardB.x + wB && cardA.x + wA > cardB.x;
+    const overlapV = cardA.y < cardB.y + hB && cardA.y + hA > cardB.y;
+    if (overlapH && overlapV) {
+      // Determine axis from center-to-center vector
+      const dx = (cardA.x + wA/2) - (cardB.x + wB/2);
+      const dy = (cardA.y + hA/2) - (cardB.y + hB/2);
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        // Horizontal: place A to left or right of B
+        const tx = dx >= 0 ? cardB.x + wB + SNAP_GAP : cardB.x - wA - SNAP_GAP;
+        cardA.x = tx;
+        springElTo(cardA, elA, tx, cardA.y);
+      } else {
+        // Vertical: place A above or below B
+        const ty = dy >= 0 ? cardB.y + hB + SNAP_GAP : cardB.y - hA - SNAP_GAP;
+        cardA.y = ty;
+        springElTo(cardA, elA, cardA.x, ty);
+      }
+    }
+  }
+
+  const frame = buildGroupFrame(g);
+  if (frame) _insertGroupFrame(g, frame);
+
+  showGroupRipple(cardA, cardB);
+  save();
+}
+
+function addToGroup(groupId, cardData) {
+  const g = groups.find(gg => gg.id === groupId);
+  if (!g || g.memberIds.includes(cardData.id)) return;
+  if (cardData.groupId && cardData.groupId !== groupId) leaveGroup(cardData, false);
+  g.memberIds.push(cardData.id);
+  cardData.groupId = groupId;
+  updateGroupFrame(groupId);
+  save();
+}
+
+function leaveGroup(cardData, doSave = true) {
+  if (!cardData.groupId) return;
+  const g = groups.find(gg => gg.id === cardData.groupId);
+  if (!g) { cardData.groupId = null; return; }
+  g.memberIds = g.memberIds.filter(id => id !== cardData.id);
+  cardData.groupId = null;
+  if (g.memberIds.length < 2) {
+    dissolveGroup(g.id);
+  } else {
+    updateGroupFrame(g.id);
+  }
+  if (doSave) save();
+}
+
+function dissolveGroup(groupId) {
+  const g = groups.find(gg => gg.id === groupId);
+  if (!g) return;
+  g.memberIds.forEach(id => {
+    const c = cards.find(cc => cc.id === id);
+    if (c) c.groupId = null;
+  });
+  groups = groups.filter(gg => gg.id !== groupId);
+  removeGroupFrameEl(groupId);
+}
+
+// ── Group frame dragging — moves all member cards together ────
+function makeGroupDraggable(hdr, group) {
+  hdr.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    if (e.target.closest('[contenteditable="true"], button')) return;
+    e.preventDefault(); e.stopPropagation();
+
+    const startX = e.clientX, startY = e.clientY;
+    let dragStarted = false;
+    const initPos = {};
+    group.memberIds.forEach(id => {
+      const c = cards.find(cc => cc.id === id);
+      if (c) initPos[id] = { x: c.x, y: c.y };
+    });
+
+    function getFrame() { return document.querySelector(`.group-frame[data-group-id="${group.id}"]`); }
+
+    function onMove(e) {
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if (!dragStarted) {
+        if (Math.sqrt(dx*dx + dy*dy) < DRAG_THRESH) return;
+        dragStarted = true; isDragging = true;
+        hdr.classList.add('grabbing');
+        const frame = getFrame(); if (frame) frame.classList.add('group-dragging');
+        zCounter++;
+        group.memberIds.forEach(id => {
+          const c  = cards.find(cc => cc.id === id);
+          const el = document.querySelector(`.card[data-id="${id}"]`);
+          if (c && el) { c.z = zCounter; el.style.zIndex = zCounter; }
+        });
+      }
+      group.memberIds.forEach(id => {
+        const c    = cards.find(cc => cc.id === id);
+        const el   = document.querySelector(`.card[data-id="${id}"]`);
+        const init = initPos[id];
+        if (!c || !el || !init) return;
+        const cl = clampToViewport(init.x + dx, init.y + dy, el.offsetWidth, el.offsetHeight);
+        c.x = cl.x; c.y = cl.y;
+        el.style.left = cl.x + 'px'; el.style.top = cl.y + 'px';
+      });
+      updateGroupFrame(group.id);
+    }
+
+    function finish() {
+      if (dragStarted) {
+        hdr.classList.remove('grabbing');
+        const frame = getFrame(); if (frame) frame.classList.remove('group-dragging');
+        isDragging = false;
+        pushHistory(); save();
+      }
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+      window.removeEventListener('blur', onBlur);
+    }
+    function onUp()  { finish(); }
+    function onBlur() { if (dragStarted) finish(); }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+    window.addEventListener('blur', onBlur);
+  });
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderAll() {
+  selectedCardId = null;
+  document.getElementById('canvas').innerHTML = '';
+  cards.forEach(c => document.getElementById('canvas').appendChild(buildCard(c)));
+  renderGroupFrames(); // insert frames behind their member cards
+  updateEmptyState();
+}
+
+function buildCard(data) {
+  if (!data.snapParent)   data.snapParent  = null;
+  if (!data.snapChildren) data.snapChildren = [];
+  if (data.locked === undefined) data.locked = false;
+
+  const el = document.createElement('div');
+  el.className = 'card' + (data.minimized ? ' minimized' : '') + (data.locked ? ' locked' : '');
+  el.dataset.id = data.id;
+  const cardW = data.cardWidth || 260;
+  el.style.cssText = `left:${data.x}px;top:${data.y}px;z-index:${data.z};--accent:${data.accent};width:${cardW}px`;
+
+  const accent = document.createElement('div');
+  accent.className = 'card-accent';
+  accent.style.background = data.accent;
+  el.appendChild(accent);
+
+
+  // ── Header ──────────────────────────────────
+  const header = document.createElement('div');
+  header.className = 'card-header';
+
+  const title = document.createElement('div');
+  title.className   = 'card-title';
+  title.textContent = data.title || 'untitled';
+
+  function commitTitle() {
+    title.removeAttribute('contenteditable');
+    title.style.cursor = '';
+    const val = title.textContent.trim();
+    data.title = val || 'untitled';
+    title.textContent = data.title;
+    save();
+  }
+  title.addEventListener('blur', commitTitle);
+  title.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); title.blur(); }
+    e.stopPropagation();
+  });
+  title.addEventListener('mousedown', e => {
+    if (title.hasAttribute('contenteditable')) e.stopPropagation();
+  });
+
+  // Lock icon (only visible when locked) — placed before title.
+  // Press and hold 2 s to unlock: a conic-gradient ring animates as progress.
+  const lockIcon = document.createElement('span');
+  lockIcon.className = 'lock-icon';
+  lockIcon.innerHTML = `<svg width="11" height="12" viewBox="0 0 11 12" fill="none" stroke="white" style="stroke:white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="5" width="8" height="6.5" rx="1.5" fill="none"/><path d="M3 5V3.5a2.5 2.5 0 0 1 5 0V5"/></svg>`;
+  lockIcon.style.display = data.locked ? '' : 'none';
+
+  lockIcon.addEventListener('mousedown', e => {
+    if (!data.locked) return;
+    e.stopPropagation();
+
+    // Build overlay ring — appended to header (position:relative) so it can be absolute
+    const ring = document.createElement('div');
+    const iconRect   = lockIcon.getBoundingClientRect();
+    const headerRect = header.getBoundingClientRect();
+    const cx = iconRect.left - headerRect.left + iconRect.width  / 2;
+    const cy = iconRect.top  - headerRect.top  + iconRect.height / 2;
+    const r  = 13;
+    ring.style.cssText = `position:absolute;width:${r*2}px;height:${r*2}px;border-radius:50%;` +
+                         `left:${cx-r}px;top:${cy-r}px;pointer-events:none;z-index:20;`;
+    header.appendChild(ring);
+
+    const DURATION  = 500;
+    const startTime = performance.now();
+    let rafId;
+
+    function animateRing(now) {
+      const progress = Math.min((now - startTime) / DURATION, 1);
+      const deg = Math.round(progress * 360);
+      ring.style.background =
+        `conic-gradient(rgba(255,255,255,0.75) ${deg}deg, rgba(255,255,255,0.12) ${deg}deg)`;
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animateRing);
+      } else {
+        ring.remove();
+        setLocked(data, el, false);
+      }
+    }
+    rafId = requestAnimationFrame(animateRing);
+
+    function cancel() {
+      cancelAnimationFrame(rafId);
+      ring.remove();
+      document.removeEventListener('mouseup',    cancel);
+      lockIcon.removeEventListener('mouseleave', cancel);
+    }
+    document.addEventListener('mouseup',    cancel, { once: true });
+    lockIcon.addEventListener('mouseleave', cancel, { once: true });
+  });
+
+  // Double-click header to rename (replaces pencil button)
+  header.addEventListener('dblclick', e => {
+    if (data.locked) return;
+    if (e.target.closest('button')) return;
+    title.setAttribute('contenteditable', 'true');
+    title.style.cursor = 'text';
+    title.focus();
+    const sel = window.getSelection(), range = document.createRange();
+    range.selectNodeContents(title);
+    sel.removeAllRanges(); sel.addRange(range);
+  });
+
+  const minBtn = document.createElement('button');
+  minBtn.className = 'card-btn minimize-btn';
+  minBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 7.5l4-3 4 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  minBtn.title = data.minimized ? 'Expand' : 'Minimize';
+  minBtn.addEventListener('mousedown', e => e.stopPropagation());
+  minBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    pushHistory();
+    data.minimized = !data.minimized;
+    el.classList.toggle('minimized', data.minimized);
+    minBtn.title = data.minimized ? 'Expand' : 'Minimize';
+    save();
+    requestAnimationFrame(() => {
+      cascadeReflow(data.id, new Set(), true);
+      if (data.groupId) resolveGroupOverlaps(data.groupId);
+    });
+  });
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'card-btn delete-btn';
+  delBtn.title     = 'Delete card';
+  delBtn.innerHTML = '×'; delBtn.style.fontSize = '17px';
+  delBtn.addEventListener('mousedown', e => e.stopPropagation());
+  delBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    deleteCard(data, el);
+  });
+
+  header.appendChild(lockIcon);
+  header.appendChild(title);
+  header.appendChild(minBtn);
+  header.appendChild(delBtn);
+  el.appendChild(header);
+
+  // ── Body ────────────────────────────────────
+  const body = document.createElement('div');
+  body.className = 'card-body';
+  if (data.bodyHeight && data.type !== 'image') {
+    body.style.flex   = 'none';
+    body.style.height = data.bodyHeight + 'px';
+  }
+
+  if      (data.type === 'todo')  buildTodoBody(body, data);
+  else if (data.type === 'text')  buildTextBody(body, data);
+  else if (data.type === 'image') buildImageBody(body, data);
+
+  el.appendChild(body);
+
+  // ── Resize handles ───────────────────────────
+  if (data.type === 'image') {
+    const ch = document.createElement('div');
+    ch.className = 'card-corner-resize';
+    el.appendChild(ch);
+    makeCornerResizable(ch, el, data);
+  } else {
+    const rh = document.createElement('div');
+    rh.className = 'card-resize-handle';
+    el.appendChild(rh);
+    makeResizable(rh, body, data);
+
+    const ew = document.createElement('div');
+    ew.className = 'card-edge-resize';
+    el.appendChild(ew);
+    makeWidthResizable(ew, el, data);
+  }
+
+  makeDraggable(el, header, data);
+
+  // Capture-phase mousedown: bring card forward and select it BEFORE any child handler runs.
+  el.addEventListener('mousedown', () => {
+    bringToFront(el, data);
+    if (selectedCardId !== data.id) {
+      if (selectedCardId) {
+        const prev = document.querySelector(`.card[data-id="${selectedCardId}"]`);
+        if (prev) prev.classList.remove('selected');
+      }
+      selectedCardId = data.id;
+      el.classList.add('selected');
+    }
+  }, true);
+
+  // Right-click context menu
+  el.addEventListener('contextmenu', e => { e.preventDefault(); showCtxMenu(e.clientX, e.clientY, data, el); });
+
+  return el;
+}
+
+// ── DELETE CARD (shared by del button and context menu) ───────
+function deleteCard(data, el) {
+  pushHistory();
+  if (data.groupId) leaveGroup(data, false); // remove from group before deleting
+  const parentRef = data.snapParent;
+  const parent    = parentRef ? cards.find(c => c.id === parentRef.id) : null;
+  if (parent) parent.snapChildren = parent.snapChildren.filter(ch => ch.id !== data.id);
+  for (const { id: childId, edge } of (data.snapChildren || [])) {
+    const child = cards.find(c => c.id === childId);
+    if (!child) continue;
+    if (parent) { child.snapParent = { id: parent.id, edge }; parent.snapChildren.push({ id: childId, edge }); }
+    else        { child.snapParent = null; }
+  }
+  if (data._springRaf) { cancelAnimationFrame(data._springRaf); data._springRaf = null; }
+  data.snapParent = null; data.snapChildren = [];
+  cards = cards.filter(c => c.id !== data.id);
+  el.remove();
+  if (parent) cascadeReflow(parent.id, new Set(), true);
+  updateEmptyState();
+  save();
+}
+
+// ── TODO ──────────────────────────────────────────────────────
+function buildTodoBody(body, data) {
+  if (!data.items) data.items = [];
+  const list = document.createElement('ul');
+  list.className = 'todo-list';
+  let dragSrcIdx = null;
+
+  function rebuildList() {
+    list.innerHTML = '';
+    data.items.forEach((item, idx) => list.appendChild(makeTodoItem(item, idx)));
+  }
+
+  function makeTodoItem(item, idx) {
+    const li = document.createElement('li');
+    li.className  = 'todo-item' + (item.done ? ' done' : '');
+    li.draggable  = true;
+
+    li.addEventListener('dragstart', e => {
+      dragSrcIdx = idx; e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => li.style.opacity = '0.4', 0);
+    });
+    li.addEventListener('dragend',  () => li.style.opacity = '');
+    li.addEventListener('dragover', e => {
+      e.preventDefault();
+      list.querySelectorAll('.todo-item').forEach(i => i.classList.remove('drag-over'));
+      li.classList.add('drag-over');
+    });
+    li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+    li.addEventListener('drop', e => {
+      e.preventDefault(); li.classList.remove('drag-over');
+      if (dragSrcIdx === null || dragSrcIdx === idx) return;
+      pushHistory(); touchLastEdited(data.id);
+      const moved = data.items.splice(dragSrcIdx, 1)[0];
+      data.items.splice(idx, 0, moved);
+      dragSrcIdx = null; save(); rebuildList();
+    });
+
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.innerHTML = `<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="3" cy="3" r="1.2"/><circle cx="7" cy="3" r="1.2"/><circle cx="3" cy="7" r="1.2"/><circle cx="7" cy="7" r="1.2"/><circle cx="3" cy="11" r="1.2"/><circle cx="7" cy="11" r="1.2"/></svg>`;
+    handle.addEventListener('mousedown', e => e.stopPropagation());
+
+    const cb = document.createElement('div');
+    cb.className = 'todo-checkbox' + (item.done ? ' checked' : '');
+    cb.addEventListener('mousedown', e => e.stopPropagation());
+    cb.addEventListener('click', e => {
+      e.stopPropagation();
+      pushHistory(); touchLastEdited(data.id);
+      item.done = !item.done;
+      li.classList.toggle('done', item.done);
+      cb.classList.toggle('checked', item.done);
+      save();
+    });
+
+    const txt = document.createElement('div');
+    txt.className       = 'todo-text';
+    txt.contentEditable = 'true'; txt.spellcheck = false;
+    txt.textContent     = item.text;
+    txt.addEventListener('mousedown', e => e.stopPropagation());
+
+    // 1500 ms debounce: one history snapshot per typing burst
+    let txtHistTimer = null;
+    txt.addEventListener('input', () => {
+      clearTimeout(txtHistTimer);
+      txtHistTimer = setTimeout(() => pushHistory(), 1500);
+      touchLastEdited(data.id);
+      item.text = txt.textContent;
+      scheduleSave();
+    });
+    txt.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addInput.focus(); }
+    });
+
+    const del = document.createElement('button');
+    del.className = 'todo-delete'; del.innerHTML = '×';
+    del.addEventListener('mousedown', e => e.stopPropagation());
+    del.addEventListener('click', e => {
+      e.stopPropagation();
+      pushHistory(); touchLastEdited(data.id);
+      data.items.splice(idx, 1); save(); rebuildList();
+    });
+
+    li.appendChild(handle); li.appendChild(cb); li.appendChild(txt); li.appendChild(del);
+    return li;
+  }
+
+  rebuildList();
+
+  const addRow   = document.createElement('div');
+  addRow.className = 'todo-add-row';
+  const plusIcon = document.createElement('span');
+  plusIcon.style.cssText  = 'font-size:14px;color:rgba(255,255,255,0.35);flex-shrink:0;line-height:1';
+  plusIcon.textContent    = '+';
+  const addInput = document.createElement('input');
+  addInput.className   = 'todo-add-input';
+  addInput.type        = 'text';
+  addInput.placeholder = 'Add item…';
+  addInput.addEventListener('mousedown', e => e.stopPropagation());
+  addInput.addEventListener('focus', () => addRow.style.opacity = '1');
+  addInput.addEventListener('blur',  () => addRow.style.opacity = '');
+  addInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const val = addInput.value.trim(); if (!val) return;
+      pushHistory(); touchLastEdited(data.id);
+      data.items.push({ id: uid(), text: val, done: false });
+      addInput.value = ''; save(); rebuildList();
+    }
+  });
+
+  addRow.appendChild(plusIcon); addRow.appendChild(addInput);
+  body.appendChild(list); body.appendChild(addRow);
+}
+
+// ── TEXT ──────────────────────────────────────────────────────
+function buildTextBody(body, data) {
+  const content = document.createElement('div');
+  content.className       = 'text-content';
+  content.contentEditable = 'true'; content.spellcheck = false;
+  content.dataset.placeholder = 'Start typing…';
+  if (data.content) content.innerHTML = data.content;
+  content.addEventListener('mousedown', e => e.stopPropagation());
+
+  // 1500 ms debounce. Ctrl+Z uses native browser undo inside contenteditable.
+  let textHistTimer = null;
+  content.addEventListener('input', () => {
+    clearTimeout(textHistTimer);
+    textHistTimer = setTimeout(() => pushHistory(), 1500);
+    touchLastEdited(data.id);
+    data.content = content.innerHTML;
+    scheduleSave();
+  });
+
+  // Selection handling is done via global mouseup (see format toolbar section)
+
+  body.appendChild(content);
+}
+
+// ── IMAGE ─────────────────────────────────────────────────────
+function buildImageBody(body, data) {
+  const zone      = document.createElement('div');
+  zone.className  = 'image-zone';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file'; fileInput.accept = 'image/*';
+  fileInput.addEventListener('mousedown', e => e.stopPropagation());
+
+  function renderZone() {
+    zone.innerHTML = '';
+    if (data.imageData) {
+      const img  = document.createElement('img');
+      img.src    = data.imageData;
+      img.onload = () => { if (!data.imageAspectRatio) data.imageAspectRatio = img.naturalWidth / img.naturalHeight; };
+      zone.appendChild(img);
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'upload-hint';
+      hint.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Click to upload</span>`;
+      zone.appendChild(hint);
+    }
+    zone.appendChild(fileInput);
+  }
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX || h > MAX) {
+          const ratio = Math.min(MAX / w, MAX / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.82);
+        data.imageData = compressed;
+        data.imageAspectRatio = w / h;
+        try {
+          save();
+        } catch(e) {
+          // localStorage quota exceeded — store in memory only
+          console.warn('Storage full, image not persisted', e);
+        }
+        renderZone();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  zone.addEventListener('click', e => { if (e.target !== fileInput) fileInput.click(); });
+  renderZone();
+  body.appendChild(zone);
+}
+
+// ── RESIZE: BOTTOM HEIGHT ─────────────────────────────────────
+function makeResizable(handle, body, data) {
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    if (data.locked) return;
+    handle.classList.add('resizing'); isResizing = true;
+    const startY = e.clientY, startH = body.offsetHeight;
+    function onMove(e) {
+      const cardEl  = body.closest('.card');
+      const headerH = cardEl ? (cardEl.querySelector('.card-header') || {}).offsetHeight || 44 : 44;
+      const maxByViewport = window.innerHeight - data.y - headerH - 8;
+      const maxByPercent  = Math.floor(window.innerHeight * 0.8);
+      const maxBodyH = Math.max(60, Math.min(maxByViewport, maxByPercent));
+      const newH = Math.max(60, Math.min(startH + (e.clientY - startY), maxBodyH));
+      body.style.flex = 'none'; body.style.height = newH + 'px';
+      data.bodyHeight = newH;
+      scheduleReflow(data.id);
+    }
+    function onUp() {
+      handle.classList.remove('resizing'); isResizing = false;
+      pushHistory(); save();
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+}
+
+// ── RESIZE: RIGHT EDGE WIDTH ──────────────────────────────────
+function makeWidthResizable(handle, cardEl, data) {
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    if (data.locked) return;
+    handle.classList.add('resizing'); isResizing = true;
+    const startX = e.clientX, startW = cardEl.offsetWidth;
+    function onMove(e) {
+      const newW = Math.max(200, Math.min(600, startW + (e.clientX - startX)));
+      cardEl.style.width = newW + 'px'; data.cardWidth = newW;
+      scheduleReflow(data.id);
+    }
+    function onUp() {
+      handle.classList.remove('resizing'); isResizing = false;
+      pushHistory(); save();
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+}
+
+// ── RESIZE: CORNER (image) ────────────────────────────────────
+function makeCornerResizable(handle, cardEl, data) {
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    if (data.locked) return;
+    isResizing = true;
+    const startX = e.clientX, startW = cardEl.offsetWidth;
+    function onMove(e) {
+      let newW = Math.max(160, startW + (e.clientX - startX));
+      // Clamp height via aspect ratio before it overflows the viewport bottom
+      if (data.imageAspectRatio) {
+        const newH  = Math.round(newW / data.imageAspectRatio);
+        const maxH  = window.innerHeight * 0.8;
+        if (newH > maxH) newW = Math.round(maxH * data.imageAspectRatio);
+      }
+      // Clamp width so card doesn't run off the right edge
+      const maxW = window.innerWidth - data.x - 8;
+      newW = Math.min(newW, maxW);
+      newW = Math.max(160, newW);
+      cardEl.style.width = newW + 'px'; data.cardWidth = newW;
+      scheduleReflow(data.id);
+    }
+    function onUp() {
+      isResizing = false; pushHistory(); save();
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+}
+
+// ── SNAP GUIDE LINES ─────────────────────────────────────────
+let activeSnapLines = [];
+function clearSnapLines() { activeSnapLines.forEach(l => l.remove()); activeSnapLines = []; }
+function showSnapLine(dir, pos, center) {
+  const line = document.createElement('div');
+  const SIZE = 160;
+  line.style.position = 'fixed';
+  line.style.pointerEvents = 'none';
+  line.style.zIndex = '99998';
+  if (dir === 'v') {
+    line.style.width  = '1px';
+    line.style.height = SIZE + 'px';
+    line.style.left   = (pos - 0.5) + 'px';
+    line.style.top    = (center - SIZE / 2) + 'px';
+    line.style.background = 'linear-gradient(to bottom,transparent,rgba(124,109,250,0.7) 30%,rgba(124,109,250,0.7) 70%,transparent)';
+  } else {
+    line.style.height = '1px';
+    line.style.width  = SIZE + 'px';
+    line.style.top    = (pos - 0.5) + 'px';
+    line.style.left   = (center - SIZE / 2) + 'px';
+    line.style.background = 'linear-gradient(to right,transparent,rgba(124,109,250,0.7) 30%,rgba(124,109,250,0.7) 70%,transparent)';
+  }
+  document.body.appendChild(line);
+  activeSnapLines.push(line);
+}
+
+// ── DRAG ──────────────────────────────────────────────────────
+function makeDraggable(el, header, data) {
+  header.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    if (e.target.closest('button, input, [contenteditable="true"]')) return;
+    if (data.locked) return;
+    e.preventDefault();
+
+    const ox = data.x, oy = data.y;
+    const startX = e.clientX, startY = e.clientY;
+    let dragStarted  = false;
+    let pendingLinks = [];
+
+    // ── Hold-to-group/ungroup state ───────────────
+    let holdRing     = null;
+    let holdRafId    = null;
+    let holdTargetId = null;
+    let holdType     = null; // 'join' | 'ungroup'
+
+    function clearHoldRing() {
+      if (holdRafId) { cancelAnimationFrame(holdRafId); holdRafId = null; }
+      if (holdRing)  { holdRing.remove(); holdRing = null; }
+      holdTargetId = null; holdType = null;
+    }
+
+    function startHoldRing(cx, cy, type, onComplete) {
+      clearHoldRing();
+      holdType = type;
+      const SIZE = 44;
+      holdRing = document.createElement('div');
+      holdRing.className = 'group-hold-ring';
+      holdRing.style.cssText = `width:${SIZE}px;height:${SIZE}px;left:${cx - SIZE/2}px;top:${cy - SIZE/2}px;`;
+      document.getElementById('canvas').appendChild(holdRing);
+      const start = performance.now();
+      function tick(now) {
+        const p   = Math.min((now - start) / GROUP_HOLD_MS, 1);
+        const deg = Math.round(p * 360);
+        const col = type === 'ungroup' ? '#f87171' : '#7c6dfa';
+        holdRing.style.background =
+          `conic-gradient(${col} ${deg}deg, rgba(255,255,255,0.08) ${deg}deg)`;
+        if (p < 1) { holdRafId = requestAnimationFrame(tick); }
+        else { clearHoldRing(); onComplete(); }
+      }
+      holdRafId = requestAnimationFrame(tick);
+    }
+
+    function onMove(e) {
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if (!dragStarted) {
+        if (Math.sqrt(dx*dx + dy*dy) < DRAG_THRESH) return;
+        dragStarted = true; isDragging = true;
+        el.classList.add('dragging'); header.classList.add('grabbing');
+        if (data.groupId) {
+          const gf = document.querySelector(`.group-frame[data-group-id="${data.groupId}"]`);
+          if (gf) gf.classList.add('group-dragging');
+        }
+        detachFromSnapGraph(data);
+      }
+
+      const rawX = ox + dx, rawY = oy + dy;
+      const snap = computeSnap(rawX, rawY, el.offsetWidth, el.offsetHeight, data.id);
+      const clamped = clampToViewport(snap.x, snap.y, el.offsetWidth, el.offsetHeight);
+
+      clearSnapLines();
+      snap.lines.forEach(l => showSnapLine(l.dir, l.pos, l.center));
+      pendingLinks = snap.links;
+
+      data.x = clamped.x; data.y = clamped.y;
+      el.style.left = clamped.x + 'px'; el.style.top = clamped.y + 'px';
+
+      // Update group frame to reflect new position
+      if (data.groupId) updateGroupFrame(data.groupId);
+
+      // ── Hold-to-group / ungroup ──────────────────
+      const dragCx = data.x + el.offsetWidth  / 2;
+      const dragCy = data.y + el.offsetHeight / 2;
+
+      if (data.groupId) {
+        // Leave group when dragged card center is 200px+ from every other member's center
+        const g = groups.find(gg => gg.id === data.groupId);
+        if (g) {
+          const otherIds = g.memberIds.filter(id => id !== data.id);
+          let closestDist = Infinity;
+          for (const id of otherIds) {
+            const mc  = cards.find(cc => cc.id === id);
+            const mel = document.querySelector(`.card[data-id="${id}"]`);
+            if (!mc || !mel) continue;
+            const d = Math.hypot(
+              dragCx - (mc.x + mel.offsetWidth  / 2),
+              dragCy - (mc.y + mel.offsetHeight / 2)
+            );
+            if (d < closestDist) closestDist = d;
+          }
+          if (closestDist > 400) { pushHistory(); leaveGroup(data); }
+        }
+      } else {
+        // Find nearest card by edge-to-edge distance — trigger at snap range
+        let nearCard = null, nearOel = null, nearDist = Infinity;
+        for (const other of cards) {
+          if (other.id === data.id) continue;
+          const oel = document.querySelector(`.card[data-id="${other.id}"]`);
+          if (!oel) continue;
+          // Axis-aligned edge-to-edge distance (0 when overlapping)
+          const ex = Math.max(0, Math.max(data.x - (other.x + oel.offsetWidth), other.x - (data.x + el.offsetWidth)));
+          const ey = Math.max(0, Math.max(data.y - (other.y + oel.offsetHeight), other.y - (data.y + el.offsetHeight)));
+          const d  = Math.max(ex, ey);
+          if (d < nearDist) { nearDist = d; nearCard = other; nearOel = oel; }
+        }
+        if (nearCard && nearDist < SNAP_DIST) {
+          if (holdTargetId !== nearCard.id) {
+            const rcx = nearCard.x + nearOel.offsetWidth  / 2;
+            const rcy = nearCard.y + nearOel.offsetHeight / 2;
+            startHoldRing(rcx, rcy, 'join', () => {
+              pushHistory(); createGroup(data, nearCard);
+            });
+            holdTargetId = nearCard.id;
+          }
+        } else {
+          if (holdRing) clearHoldRing();
+        }
+      }
+    }
+
+    function clearGroupDragging() {
+      // Remove group-dragging class — card may have left the group by now, check all frames
+      document.querySelectorAll('.group-frame.group-dragging').forEach(f => f.classList.remove('group-dragging'));
+    }
+
+    function onUp() {
+      clearHoldRing();
+      if (dragStarted) {
+        el.classList.remove('dragging'); header.classList.remove('grabbing');
+        clearGroupDragging();
+        isDragging = false; clearSnapLines();
+        attachToSnapGraph(data, pendingLinks, true);
+        pushHistory(); save();
+      }
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+      window.removeEventListener('blur', onBlur);
+    }
+
+    function onBlur() {
+      if (isDragging) {
+        clearHoldRing();
+        el.classList.remove('dragging'); header.classList.remove('grabbing');
+        clearGroupDragging();
+        isDragging = false; clearSnapLines();
+        attachToSnapGraph(data, pendingLinks, true);
+        pushHistory(); save();
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup',   onUp);
+        window.removeEventListener('blur', onBlur);
+      }
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+    window.addEventListener('blur', onBlur);
+  });
+}
+
+function bringToFront(el, data) {
+  zCounter++; data.z = zCounter; el.style.zIndex = zCounter;
+  touchLastEdited(data.id);
+}
+
+// ── CONTEXT MENU ─────────────────────────────────────────────
+const ctxMenu = document.getElementById('ctx-menu');
+let ctxTarget = null; // { data, el }
+
+function showCtxMenu(mx, my, data, el) {
+  ctxTarget = { data, el };
+  ctxMenu.innerHTML = '';
+
+  function item(label, fn, danger = false) {
+    const d = document.createElement('div');
+    d.className   = 'ctx-item' + (danger ? ' danger' : '');
+    d.textContent = label;
+    d.addEventListener('click', () => { hideCtxMenu(); fn(); });
+    ctxMenu.appendChild(d);
+  }
+  function divider() {
+    const d = document.createElement('div');
+    d.className = 'ctx-divider';
+    ctxMenu.appendChild(d);
+  }
+
+  if (data.locked) {
+    item('Unlock card', () => setLocked(data, el, false));
+  } else {
+    item('Lock card', () => setLocked(data, el, true));
+  }
+  item('Duplicate', () => duplicateCard(data));
+  if (data.groupId) {
+    item('Leave group', () => { pushHistory(); leaveGroup(data); });
+  }
+
+  // Color picker row
+  const colorLabel = document.createElement('div');
+  colorLabel.className = 'ctx-item';
+  colorLabel.textContent = 'Color';
+  colorLabel.style.cssText = 'cursor:default;opacity:0.5;padding-bottom:2px;';
+  colorLabel.addEventListener('mouseenter', () => colorLabel.style.background = '');
+  ctxMenu.appendChild(colorLabel);
+
+  const colorRow = document.createElement('div');
+  colorRow.style.cssText = 'display:flex;gap:8px;padding:2px 12px 8px;';
+  ACCENTS.forEach(color => {
+    const dot = document.createElement('div');
+    dot.style.cssText = `width:16px;height:16px;border-radius:50%;background:${color};cursor:pointer;flex-shrink:0;outline:2px solid ${data.accent === color ? '#fff' : 'transparent'};outline-offset:2px;transition:outline-color 0.1s;`;
+    dot.addEventListener('click', () => {
+      data.accent = color;
+      el.querySelector('.card-accent').style.background = color;
+      el.style.setProperty('--accent', color);
+      save();
+      hideCtxMenu();
+    });
+    colorRow.appendChild(dot);
+  });
+  ctxMenu.appendChild(colorRow);
+
+  divider();
+  item('Delete card', () => deleteCard(data, el), true);
+
+  // Position: keep menu inside viewport
+  ctxMenu.style.left    = '0';
+  ctxMenu.style.top     = '0';
+  ctxMenu.classList.add('visible');
+  const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+  ctxMenu.style.left = Math.min(mx, window.innerWidth  - mw - 8) + 'px';
+  ctxMenu.style.top  = Math.min(my, window.innerHeight - mh - 8) + 'px';
+}
+
+function hideCtxMenu() {
+  ctxMenu.classList.remove('visible');
+  ctxTarget = null;
+}
+
+document.addEventListener('mousedown', e => {
+  if (!ctxMenu.contains(e.target)) hideCtxMenu();
+  // Clear card selection when clicking on empty canvas
+  if (!e.target.closest('.card')) {
+    if (selectedCardId) {
+      const prev = document.querySelector(`.card[data-id="${selectedCardId}"]`);
+      if (prev) prev.classList.remove('selected');
+      selectedCardId = null;
+    }
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideCtxMenu();
+  const active = document.activeElement;
+  const inEditable = active && (active.isContentEditable || active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    if (!inEditable) { e.preventDefault(); undoState(); }
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !inEditable && selectedCardId) {
+    e.preventDefault();
+    const selData = cards.find(c => c.id === selectedCardId);
+    const selEl   = document.querySelector(`.card[data-id="${selectedCardId}"]`);
+    if (selData && selEl) { selectedCardId = null; deleteCard(selData, selEl); }
+  }
+});
+document.addEventListener('scroll', hideCtxMenu, true);
+
+function setLocked(data, el, locked) {
+  pushHistory();
+  data.locked = locked;
+  el.classList.toggle('locked', locked);
+  el.querySelector('.lock-icon').style.display = locked ? '' : 'none';
+  save();
+}
+
+function duplicateCard(srcData) {
+  pushHistory();
+  // Deep-copy content fields
+  const newData = JSON.parse(JSON.stringify(srcData));
+  newData.id           = uid();
+  newData.x            = srcData.x + 20;
+  newData.y            = srcData.y + 20;
+  newData.z            = ++zCounter;
+  newData.snapParent   = null;
+  newData.snapChildren = [];
+  newData.locked       = false;
+  newData.groupId      = null; // duplicates are independent, not in the same group
+
+  // Offset new ids for todo items so they don't collide
+  if (newData.items) newData.items = newData.items.map(it => ({ ...it, id: uid() }));
+
+  // Clamp to viewport
+  // (we'll read element size after insertion; default width is used for now)
+  const clampedPos = clampToViewport(newData.x, newData.y, newData.cardWidth || 260, 200);
+  newData.x = clampedPos.x; newData.y = clampedPos.y;
+
+  cards.push(newData);
+  const newEl = buildCard(newData);
+  document.getElementById('canvas').appendChild(newEl);
+
+  // If source had a parent, add duplicate as sibling (same parent, same edge)
+  if (srcData.snapParent) {
+    attachToSnapGraph(newData, [{ toId: srcData.snapParent.id, myEdge: srcData.snapParent.edge }], true);
+  }
+
+  save();
+}
+
+// ── FLOATING FORMAT TOOLBAR ───────────────────────────────────
+const FMT_STYLES = [
+  { label: 'H1', fontSize: '18px',   fontWeight: '700', fontStyle: 'normal', color: '#e8e8ea'               },
+  { label: 'H2', fontSize: '15px',   fontWeight: '600', fontStyle: 'normal', color: '#e8e8ea'               },
+  { label: 'H3', fontSize: '13px',   fontWeight: '500', fontStyle: 'normal', color: '#a0a0b0'               },
+  { label: 'P',  fontSize: '12.5px', fontWeight: '400', fontStyle: 'normal', color: 'rgba(255,255,255,0.7)' },
+  { label: 'FN', fontSize: '11px',   fontWeight: '400', fontStyle: 'italic', color: '#6b6b78'               },
+];
+
+const fmtToolbar = document.getElementById('fmt-toolbar');
+let fmtContent = null;
+let fmtData    = null;
+
+FMT_STYLES.forEach(style => {
+  const btn = document.createElement('button');
+  btn.textContent = style.label; btn.title = style.label;
+  btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+  btn.addEventListener('click',     e => { e.stopPropagation(); applyFmt(style); });
+  fmtToolbar.appendChild(btn);
+});
+
+function showFmtToolbar(range, contentEl, dataObj) {
+  fmtContent = contentEl; fmtData = dataObj;
+  const rect = range.getBoundingClientRect();
+  fmtToolbar.style.left    = (rect.left + rect.width / 2) + 'px';
+  fmtToolbar.style.top     = Math.max(4, rect.top - 38)   + 'px';
+  fmtToolbar.style.display = 'flex';
+}
+function hideFmtToolbar() {
+  fmtToolbar.style.display = 'none';
+  fmtContent = null; fmtData = null;
+}
+
+// Global mouseup — catches multi-word drag selections that end outside the content element
+document.addEventListener('mouseup', e => {
+  if (fmtToolbar.contains(e.target)) return;
+  requestAnimationFrame(() => {
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const node  = range.commonAncestorContainer;
+      const contentEl = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node)
+                          .closest('.text-content');
+      if (contentEl) {
+        const cardEl   = contentEl.closest('.card');
+        const cardData = cardEl && cards.find(c => c.id === cardEl.dataset.id);
+        if (cardData) { showFmtToolbar(range, contentEl, cardData); return; }
+      }
+    }
+    hideFmtToolbar();
+  });
+});
+
+// Hide on mousedown outside toolbar (but not on drag-start — mouseup will re-show if selection exists)
+document.addEventListener('mousedown', e => {
+  if (!fmtToolbar.contains(e.target)) hideFmtToolbar();
+});
+
+// Unwrap all [data-fmt] spans in a subtree, keeping their children
+function _flattenFmt(root) {
+  Array.from(root.querySelectorAll('[data-fmt]')).forEach(s => {
+    const p = s.parentNode; if (!p) return;
+    while (s.firstChild) p.insertBefore(s.firstChild, s);
+    p.removeChild(s);
+  });
+}
+
+// Remove any [data-fmt] spans that ended up empty after DOM surgery
+function _cleanEmpty(root) {
+  Array.from(root.querySelectorAll('[data-fmt]')).forEach(s => {
+    if (!s.textContent) s.remove();
+  });
+}
+
+// Write all style properties onto a span element
+function _applyStyleToSpan(span, style) {
+  span.dataset.fmt      = style.label;
+  span.style.fontSize   = style.fontSize;
+  span.style.fontWeight = style.fontWeight;
+  span.style.fontStyle  = style.fontStyle;
+  span.style.color      = style.color;
+}
+
+function applyFmt(style) {
+  if (!fmtContent || !fmtData) return;
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  if (!fmtContent.contains(range.commonAncestorContainer)) return;
+
+  // ── Case A: selection sits entirely inside one fmt span ───────
+  // This is the common case: click H1 text, change to FN, toggle off, etc.
+  // Handle it with an in-place mutation — no extraction needed.
+  const anchor = range.commonAncestorContainer;
+  const anchorEl = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor;
+  const enclosing = anchorEl.closest('[data-fmt]');
+
+  if (enclosing && fmtContent.contains(enclosing)) {
+    if (enclosing.dataset.fmt === style.label) {
+      // Same style → toggle off (unwrap)
+      const p = enclosing.parentNode;
+      while (enclosing.firstChild) p.insertBefore(enclosing.firstChild, enclosing);
+      p.removeChild(enclosing);
+    } else {
+      // Different style → restyle in-place, all properties replaced
+      _applyStyleToSpan(enclosing, style);
+    }
+    fmtContent.normalize();
+    fmtData.content = fmtContent.innerHTML;
+    save();
+    return;
+  }
+
+  // ── Case B: plain text or selection crossing multiple spans ───
+  // Build a fresh span, extract the selection into it.
+  const span = document.createElement('span');
+  _applyStyleToSpan(span, style);
+
+  try {
+    // Works when the range doesn't partially straddle any element boundary
+    range.surroundContents(span);
+  } catch {
+    // Range crosses element boundaries — extract, flatten, rewrap
+    const frag = range.extractContents();
+    _flattenFmt(frag);
+    span.appendChild(frag);
+    range.insertNode(span);
+  }
+
+  _cleanEmpty(fmtContent);
+  fmtContent.normalize();
+  fmtData.content = fmtContent.innerHTML;
+  save();
+}
+
+// ── COLLECT / TIDY ────────────────────────────────────────────
+// Multi-column layout that guarantees all cards stay inside viewport.
+// Fills each column top-to-bottom until (innerHeight - 40px), then
+// starts the next column. Column count grows as needed.
+document.getElementById('collect-btn').addEventListener('click', () => {
+  if (!cards.length) return;
+  pushHistory();
+
+  const maxH      = window.innerHeight - 40;
+  const colStartX = 20;
+  const colGap    = 12;
+
+  // Clear all snap relationships; collect creates a fresh chain
+  cards.forEach(c => { c.snapParent = null; c.snapChildren = []; });
+
+  // Build items: single cards or group blocks (groups treated as one unit)
+  const processedGroups = new Set();
+  const sortedAll = [...cards].sort((a, b) => a.y - b.y || a.x - b.x);
+
+  // items: { type:'card', data, h, w } | { type:'group', group, members:[{data,el,h,w,relY}], h, w }
+  const items = [];
+  for (const d of sortedAll) {
+    if (d.groupId) {
+      if (processedGroups.has(d.groupId)) continue;
+      processedGroups.add(d.groupId);
+      const g = groups.find(gg => gg.id === d.groupId);
+      if (!g) { // orphaned groupId — treat as regular card
+        const e = document.querySelector(`.card[data-id="${d.id}"]`);
+        items.push({ type: 'card', data: d, h: e ? e.offsetHeight : 200, w: e ? e.offsetWidth : 260 });
+        continue;
+      }
+      const members = g.memberIds
+        .map(id => {
+          const c = cards.find(cc => cc.id === id);
+          const e = document.querySelector(`.card[data-id="${id}"]`);
+          return c && e ? { data: c, el: e, h: e.offsetHeight, w: e.offsetWidth } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.data.y - b.data.y);
+      if (!members.length) continue;
+      const baseY = members[0].data.y;
+      members.forEach(m => { m.relY = m.data.y - baseY; });
+      const groupW = Math.max(...members.map(m => m.w));
+      const groupH = members[members.length-1].relY + members[members.length-1].h;
+      items.push({ type: 'group', group: g, members,
+        w: groupW + GROUP_PAD * 2,
+        h: GROUP_HEADER_H + GROUP_PAD + groupH + GROUP_PAD });
+    } else {
+      const e = document.querySelector(`.card[data-id="${d.id}"]`);
+      items.push({ type: 'card', data: d,
+        h: e ? e.offsetHeight : (d.minimized ? 44 : 200),
+        w: e ? e.offsetWidth  : (d.cardWidth || 260) });
+    }
+  }
+
+  // Lay out items into columns
+  const cols  = [];
+  let colX    = colStartX;
+  let colData = { x: colX, items: [] };
+  let curColH = 0;
+  for (const item of items) {
+    const gap = colData.items.length > 0 ? SNAP_GAP : 0;
+    if (curColH + gap + item.h > maxH && colData.items.length > 0) {
+      cols.push(colData);
+      const prevMaxW = Math.max(...colData.items.map(it => it.w));
+      colX += prevMaxW + colGap;
+      colData = { x: colX, items: [] };
+      curColH = 0;
+    }
+    colData.items.push(item);
+    curColH += gap + item.h;
+  }
+  if (colData.items.length) cols.push(colData);
+
+  // Anchor to toolbar side
+  const TOOLBAR_MARGIN = 28 + 48 + 12;
+  const totalW = cols.reduce((sum, col, i) => {
+    const colW = Math.max(...col.items.map(it => it.w));
+    return sum + colW + (i < cols.length - 1 ? colGap : 0);
+  }, 0);
+  let offsetX;
+  if (document.body.classList.contains('snapped-left')) {
+    offsetX = TOOLBAR_MARGIN - colStartX;
+  } else {
+    const rightEdge = window.innerWidth - TOOLBAR_MARGIN;
+    offsetX = rightEdge - totalW;
+  }
+  cols.forEach(col => { col.x += offsetX; });
+
+  // Position items
+  cols.forEach(col => {
+    let y = 20;
+    const ungroupedSeq = []; // track ungrouped cards for snap-chain rebuild
+    col.items.forEach(item => {
+      if (item.type === 'card') {
+        item.data.x = col.x; item.data.y = y;
+        const e = document.querySelector(`.card[data-id="${item.data.id}"]`);
+        if (e) springElTo(item.data, e, col.x, y);
+        ungroupedSeq.push(item.data);
+        y += item.h + SNAP_GAP;
+      } else {
+        // Group block: place members at their relative positions inside the block
+        const baseX = col.x + GROUP_PAD;
+        const baseY = y + GROUP_HEADER_H + GROUP_PAD;
+        item.members.forEach(({ data: d, el, relY }) => {
+          const nx = baseX, ny = baseY + relY;
+          d.x = nx; d.y = ny;
+          if (el) springElTo(d, el, nx, ny);
+        });
+        y += item.h + SNAP_GAP;
+      }
+    });
+    // Rebuild snap chain for ungrouped cards only
+    for (let i = 1; i < ungroupedSeq.length; i++) {
+      const prev = ungroupedSeq[i-1], curr = ungroupedSeq[i];
+      curr.snapParent   = { id: prev.id, edge: 'top' };
+      prev.snapChildren = [{ id: curr.id, edge: 'top' }];
+    }
+  });
+
+  // Update all group frames to reflect new positions
+  groups.forEach(g => updateGroupFrame(g.id));
+
+  setTimeout(save, 650);
+});
+
+// ── ADD CARD ──────────────────────────────────────────────────
+const addBtn = document.getElementById('add-btn');
+const picker = document.getElementById('picker');
+
+addBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  // If toolbar is open, collapse it — then still open the picker
+  if (document.body.classList.contains('toolbar-open')) {
+    document.body.classList.remove('toolbar-open');
+  }
+  picker.classList.toggle('visible');
+  addBtn.classList.toggle('open');
+});
+document.addEventListener('click', () => {
+  picker.classList.remove('visible');
+  addBtn.classList.remove('open');
+});
+picker.addEventListener('click', e => e.stopPropagation());
+
+document.querySelectorAll('.picker-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const type = btn.dataset.type;
+    const pos  = getSpawnPos(null);
+    const newCard = {
+      id: uid(), type,
+      accent: randAccent(),
+      title: type === 'todo' ? 'new list' : type === 'text' ? 'note' : 'image',
+      minimized: false, locked: false, groupId: null,
+      x: pos.x, y: pos.y,
+      z: ++zCounter,
+      bodyHeight: null, cardWidth: null, snapParent: null, snapChildren: [],
+      items:   type === 'todo' ? [] : undefined,
+      content: type === 'text' ? '' : undefined,
+      imageData: null, imageAspectRatio: null,
+    };
+    pushHistory();
+    cards.push(newCard);
+    save();
+    const cardEl = buildCard(newCard);
+    document.getElementById('canvas').appendChild(cardEl);
+    updateEmptyState();
+    picker.classList.remove('visible');
+    addBtn.classList.remove('open');
+
+    requestAnimationFrame(() => {
+      const anchor   = lastEditedCardId ? cards.find(c => c.id === lastEditedCardId) : null;
+      const anchorEl = anchor && anchor.id !== newCard.id
+        ? document.querySelector(`.card[data-id="${anchor.id}"]`) : null;
+      let snapped = false;
+
+      if (anchor && anchorEl) {
+        const aW = anchorEl.offsetWidth, aH = anchorEl.offsetHeight;
+        const hasBottomChild = (anchor.snapChildren || []).some(ch => ch.edge === 'top');
+        let sx, sy, edge;
+        if (!hasBottomChild) { sx = anchor.x; sy = anchor.y + aH + SNAP_GAP; edge = 'top'; }
+        else                  { sx = anchor.x + aW + SNAP_GAP; sy = anchor.y; edge = 'left'; }
+        const clamped = clampToViewport(sx, sy, cardEl.offsetWidth, cardEl.offsetHeight);
+        newCard.x = clamped.x; newCard.y = clamped.y;
+        cardEl.style.left = clamped.x + 'px'; cardEl.style.top = clamped.y + 'px';
+        attachToSnapGraph(newCard, [{ toId: anchor.id, myEdge: edge }]);
+        save(); snapped = true;
+      }
+
+      if (!snapped) {
+        const snap = computeSnap(newCard.x, newCard.y, cardEl.offsetWidth, cardEl.offsetHeight, newCard.id);
+        if (snap.links.length) {
+          const clamped = clampToViewport(snap.x, snap.y, cardEl.offsetWidth, cardEl.offsetHeight);
+          newCard.x = clamped.x; newCard.y = clamped.y;
+          cardEl.style.left = clamped.x + 'px'; cardEl.style.top = clamped.y + 'px';
+          attachToSnapGraph(newCard, snap.links);
+          save();
+        }
+      }
+
+      const titleEl = cardEl.querySelector('.card-title');
+      if (titleEl) {
+        titleEl.setAttribute('contenteditable', 'true');
+        titleEl.style.cursor = 'text'; titleEl.focus();
+        const sel = window.getSelection(), range = document.createRange();
+        range.selectNodeContents(titleEl);
+        sel.removeAllRanges(); sel.addRange(range);
+      }
+    });
+  });
+});
+
+// ── CANVAS CONTEXT MENU (export / import) ────────────────────
+document.getElementById('canvas').addEventListener('contextmenu', e => {
+  // Only fire when clicking the bare canvas — not on a card or group frame
+  if (e.target.closest('.card') || e.target.closest('.group-frame')) return;
+  e.preventDefault();
+  showCanvasCtxMenu(e.clientX, e.clientY);
+});
+
+function showCanvasCtxMenu(mx, my) {
+  ctxMenu.innerHTML = '';
+
+  function item(label, fn, danger = false) {
+    const d = document.createElement('div');
+    d.className   = 'ctx-item' + (danger ? ' danger' : '');
+    d.textContent = label;
+    d.addEventListener('click', () => { hideCtxMenu(); fn(); });
+    ctxMenu.appendChild(d);
+  }
+
+  item('Export cards (JSON)', () => {
+    const withImages = confirm('Include images in export?\n\nYes = larger file (~MB)\nNo = smaller file, images excluded');
+    const data = cards.map(c => {
+      if (!withImages && c.type === 'image') {
+        const { imageData, ...rest } = c;
+        return rest;
+      }
+      return c;
+    });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'floatboard-export.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  item('Import cards (JSON)', () => {
+    const input    = document.createElement('input');
+    input.type     = 'file';
+    input.accept   = '.json,application/json';
+    input.addEventListener('change', () => {
+      const file = input.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const imported = JSON.parse(ev.target.result);
+          if (!Array.isArray(imported)) { alert('Invalid file — expected a JSON array.'); return; }
+          pushHistory();
+          // Remap ids to avoid collisions, clear snap graph for imported cards
+          const idMap = {};
+          imported.forEach(c => {
+            const newId = uid();
+            idMap[c.id] = newId;
+            c.id          = newId;
+            c.snapParent  = null;
+            c.snapChildren = [];
+            c.z            = ++zCounter;
+            // Offset position so imported cards don't sit exactly on existing ones
+            c.x = (c.x || 20) + 30;
+            c.y = (c.y || 20) + 30;
+            const clamped = clampToViewport(c.x, c.y, c.cardWidth || 260, 200);
+            c.x = clamped.x; c.y = clamped.y;
+            if (c.items) c.items = c.items.map(it => ({ ...it, id: uid() }));
+          });
+          imported.forEach(c => cards.push(c));
+          renderAll();
+          save();
+        } catch(err) {
+          alert('Failed to import: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+    input.click();
+  });
+
+  ctxMenu.style.left = '0';
+  ctxMenu.style.top  = '0';
+  ctxMenu.classList.add('visible');
+  const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+  ctxMenu.style.left = Math.min(mx, window.innerWidth  - mw - 8) + 'px';
+  ctxMenu.style.top  = Math.min(my, window.innerHeight - mh - 8) + 'px';
+}
+
+// ── GROUP CONTEXT MENU ────────────────────────────────────────
+function showGroupCtxMenu(groupId, mx, my) {
+  const g = groups.find(gg => gg.id === groupId);
+  if (!g) return;
+  ctxMenu.innerHTML = '';
+
+  function item(label, fn) {
+    const d = document.createElement('div');
+    d.className   = 'ctx-item';
+    d.textContent = label;
+    d.addEventListener('click', () => { hideCtxMenu(); fn(); });
+    ctxMenu.appendChild(d);
+  }
+  function divider() {
+    const d = document.createElement('div');
+    d.className = 'ctx-divider';
+    ctxMenu.appendChild(d);
+  }
+
+  function getMembers() {
+    return g.memberIds.map(id => ({
+      c:  cards.find(cc => cc.id === id),
+      el: document.querySelector(`.card[data-id="${id}"]`)
+    })).filter(m => m.c && m.el);
+  }
+
+  item('Auto stack vertical', () => {
+    pushHistory();
+    const members = getMembers();
+    members.sort((a, b) => a.c.y - b.c.y);
+    const leftX = Math.min(...members.map(m => m.c.x));
+    let curY = members[0].c.y;
+    members.forEach(({ c, el }) => {
+      c.x = leftX; c.y = curY;
+      el.style.left = leftX + 'px'; el.style.top = curY + 'px';
+      curY += el.offsetHeight + SNAP_GAP;
+    });
+    updateGroupFrame(groupId); save();
+  });
+
+  item('Auto stack horizontal', () => {
+    pushHistory();
+    const members = getMembers();
+    members.sort((a, b) => a.c.x - b.c.x);
+    const topY = Math.min(...members.map(m => m.c.y));
+    let curX = members[0].c.x;
+    members.forEach(({ c, el }) => {
+      c.x = curX; c.y = topY;
+      el.style.left = curX + 'px'; el.style.top = topY + 'px';
+      curX += el.offsetWidth + SNAP_GAP;
+    });
+    updateGroupFrame(groupId); save();
+  });
+
+  item('Collapse all', () => {
+    pushHistory();
+    getMembers().forEach(({ c, el }) => {
+      if (!c.minimized) {
+        c.minimized = true; el.classList.add('minimized');
+        const mb = el.querySelector('.minimize-btn'); if (mb) mb.title = 'Expand';
+      }
+    });
+    requestAnimationFrame(() => updateGroupFrame(groupId)); save();
+  });
+
+  item('Expand all', () => {
+    pushHistory();
+    getMembers().forEach(({ c, el }) => {
+      if (c.minimized) {
+        c.minimized = false; el.classList.remove('minimized');
+        const mb = el.querySelector('.minimize-btn'); if (mb) mb.title = 'Minimize';
+      }
+    });
+    requestAnimationFrame(() => { updateGroupFrame(groupId); resolveGroupOverlaps(groupId); }); save();
+  });
+
+  divider();
+
+  item('Lock all', () => {
+    pushHistory();
+    getMembers().forEach(({ c, el }) => {
+      c.locked = true; el.classList.add('locked');
+      const li = el.querySelector('.lock-icon'); if (li) li.style.display = '';
+    });
+    save();
+  });
+
+  item('Unlock all', () => {
+    pushHistory();
+    getMembers().forEach(({ c, el }) => {
+      c.locked = false; el.classList.remove('locked');
+      const li = el.querySelector('.lock-icon'); if (li) li.style.display = 'none';
+    });
+    save();
+  });
+
+  divider();
+
+  item('Ungroup', () => { pushHistory(); dissolveGroup(groupId); save(); });
+
+  ctxMenu.style.left = '0'; ctxMenu.style.top = '0';
+  ctxMenu.classList.add('visible');
+  const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+  ctxMenu.style.left = Math.min(mx, window.innerWidth  - mw - 8) + 'px';
+  ctxMenu.style.top  = Math.min(my, window.innerHeight - mh - 8) + 'px';
+}
+
+// ── GLOBAL DRAG/RESIZE SAFETY NET ────────────────────────────
+// Resets stuck state if mouseup is lost to an OS dialog or out-of-window click.
+window.addEventListener('mouseup', () => { isDragging = false; isResizing = false; });
+
+// ── INIT ──────────────────────────────────────────────────────
+load().then(() => {
+  renderAll();           // also calls updateEmptyState()
+  // After first paint: clamp positions and body heights to current viewport
+  requestAnimationFrame(() => { clampAllCards(); clampBodyHeights(); });
+});
+
+// ── COLLAPSIBLE TOOLBAR ───────────────────────────────────────
+const toolbarExpand = document.getElementById('toolbar-expand');
+
+// IDs of every button that should NOT close the toolbar when clicked
+const TOOLBAR_IDS = new Set([
+  'toolbar-expand','btn-snap','undo-btn','collect-btn',
+  'gb-close','gb-pin','gb-min'
+]);
+
+toolbarExpand.addEventListener('click', e => {
+  e.stopPropagation();
+  // Also close picker when opening toolbar
+  picker.classList.remove('visible');
+  addBtn.classList.remove('open');
+  document.body.classList.toggle('toolbar-open');
+  const isOpen = document.body.classList.contains('toolbar-open');
+  toolbarExpand.dataset.tip = isOpen ? 'Collapse' : 'More tools';
+});
+document.addEventListener('click', e => {
+  // Walk up the event path — if we hit a toolbar button, leave it open
+  const insideToolbar = e.composedPath().some(
+    el => el.id && TOOLBAR_IDS.has(el.id)
+  );
+  if (!insideToolbar) {
+    document.body.classList.remove('toolbar-open');
+    toolbarExpand.dataset.tip = 'More tools';
+  }
+});
+
+// ── ELECTRON WINDOW CONTROLS ──────────────────────────────────
+if (typeof window.electronAPI !== 'undefined') {
+  // Transparency fix
+  document.body.style.background = 'transparent';
+  document.getElementById('canvas').style.background = 'transparent';
+
+  // Enable Group B — CSS handles display once body.electron is set
+  document.body.classList.add('electron');
+
+  // Wire Group B
+  document.getElementById('gb-close').addEventListener('click', e => {
+    e.stopPropagation(); window.electronAPI.quit();
+  });
+  document.getElementById('gb-min').addEventListener('click', e => {
+    e.stopPropagation(); window.electronAPI.minimize();
+  });
+
+  const gbPin     = document.getElementById('gb-pin');
+  const gbPinHead = document.getElementById('gb-pin-head');
+  function setPinState(p) {
+    gbPin.classList.toggle('pinned', p);
+    if (gbPinHead) gbPinHead.style.fill = p ? 'currentColor' : 'none';
+  }
+  gbPin.addEventListener('click', e => {
+    e.stopPropagation(); window.electronAPI.toggleAlwaysOnTop();
+  });
+  setPinState(true); // starts always-on-top
+  window.electronAPI.onAlwaysOnTopChanged(p => setPinState(p));
+
+  // Wire snap — mirrors UI left↔right instantly via CSS class
+  document.getElementById('btn-snap').addEventListener('click', e => {
+    e.stopPropagation();
+    document.body.classList.toggle('snapped-left');
+  });
+} else {
+  // Not in Electron — tag body so CSS shifts undo/collect left
+  document.body.classList.add('no-electron');
+}
+
+// ── KO-FI ──────────────────────────────────────────────────────
+const KOFI_URL = 'https://ko-fi.com/manuelconde';
+document.getElementById('kofi-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  if (window.electronAPI && window.electronAPI.openExternal) {
+    window.electronAPI.openExternal(KOFI_URL);
+  } else {
+    window.open(KOFI_URL, '_blank');
+  }
+});
+
+// ── CLICK-THROUGH ─────────────────────────────────────────────
+// When cursor is over a card or toolbar zone → receive mouse events.
+// When over empty transparent canvas → pass through to OS (Figma, VS Code, etc).
+const INTERACTIVE = [
+  '.card', '.group-frame', '#add-btn', '#undo-btn', '#collect-btn', '#btn-snap',
+  '#kofi-btn', '#picker', '#ctx-menu', '#fmt-toolbar', '#titlebar',
+  '#toolbar-expand', '#gb-close', '#gb-pin', '#gb-min'
+].join(', ');
+
+let _lastIgnore = true;
+
+document.addEventListener('mousemove', e => {
+  if (typeof window.electronAPI === 'undefined') return;
+  // Force click-through near window edges so the OS never sees a resize border
+  const EDGE = 12;
+  const nearEdge = e.clientX < EDGE || e.clientY < EDGE ||
+                   e.clientX > window.innerWidth  - EDGE ||
+                   e.clientY > window.innerHeight - EDGE;
+  const hit = !nearEdge && e.composedPath().some(el => el.matches && el.matches(INTERACTIVE));
+  const shouldIgnore = !hit;
+  if (shouldIgnore !== _lastIgnore) {
+    _lastIgnore = shouldIgnore;
+    window.electronAPI.setIgnoreMouse(shouldIgnore);
+  }
+}, { passive: true });
+</script>
+</body>
+</html>
