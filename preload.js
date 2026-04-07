@@ -9,5 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal:      (url)   => ipcRenderer.send('open-external', url),
   onAlwaysOnTopChanged: (cb) => ipcRenderer.on('always-on-top-changed', (_, v) => cb(v)),
   saveData:          (json)  => ipcRenderer.invoke('save-data', json),
-  loadData:          ()      => ipcRenderer.invoke('load-data')
+  loadData:          ()      => ipcRenderer.invoke('load-data'),
+  readClaudeUsage:   ()      => ipcRenderer.invoke('read-claude-usage'),
+  captureBoard:      ()      => ipcRenderer.invoke('capture-board')
 })

@@ -7,6 +7,7 @@ const IS_WIN = process.platform === 'win32'
 const IS_MAC = process.platform === 'darwin'
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+app.commandLine.appendSwitch('disk-cache-size', '0')
 
 let win
 let tray
@@ -122,6 +123,56 @@ if (IS_WIN && !fs.existsSync(shortcutFlag)) {
   })
 }
 
+// ── CLAUDE USAGE — parse local JSONL logs ─────────────────────
+const CLAUDE_DIR = path.join(os.homedir(), '.claude', 'projects')
+
+ipcMain.handle('read-claude-usage', async () => {
+  try {
+    if (!fs.existsSync(CLAUDE_DIR)) return { ok: true, messages: 0, tokensIn: 0, tokensOut: 0 }
+
+    const fiveHoursAgo = Date.now() - 5 * 60 * 60 * 1000
+    let messages = 0, tokensIn = 0, tokensOut = 0
+
+    // Walk all project dirs for .jsonl files
+    const projects = fs.readdirSync(CLAUDE_DIR, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+
+    for (const proj of projects) {
+      const projPath = path.join(CLAUDE_DIR, proj.name)
+      const files = fs.readdirSync(projPath)
+        .filter(f => f.endsWith('.jsonl'))
+
+      for (const file of files) {
+        const filePath = path.join(projPath, file)
+        // Skip files older than 5 hours by mtime
+        const stat = fs.statSync(filePath)
+        if (stat.mtimeMs < fiveHoursAgo) continue
+
+        const content = fs.readFileSync(filePath, 'utf8')
+        const lines = content.split('\n').filter(l => l.trim())
+
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line)
+            if (entry.type !== 'assistant' || !entry.message?.usage) continue
+            const ts = new Date(entry.timestamp).getTime()
+            if (ts < fiveHoursAgo) continue
+
+            messages++
+            const u = entry.message.usage
+            tokensIn  += (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0)
+            tokensOut += (u.output_tokens || 0)
+          } catch (_) { /* skip malformed lines */ }
+        }
+      }
+    }
+
+    return { ok: true, messages, tokensIn, tokensOut }
+  } catch (e) {
+    return { ok: false, messages: 0, tokensIn: 0, tokensOut: 0, error: e.message }
+  }
+})
+
 // ── PERSISTENT DATA — single file in user's home dir ──────────
 const DATA_FILE = path.join(os.homedir(), '.floatboard-data.json')
 
@@ -143,6 +194,11 @@ ipcMain.handle('load-data', async () => {
   } catch (e) {
     return { ok: false, data: null, error: e.message }
   }
+})
+
+ipcMain.handle('capture-board', async () => {
+  const img = await win.webContents.capturePage()
+  return img.toDataURL()
 })
 
 ipcMain.on('set-ignore-mouse', (_, ignore) => {
@@ -181,6 +237,16 @@ app.on('before-quit', () => { app.isQuiting = true })
 app.whenReady().then(() => {
   createWindow()
   createTray()
+
+  // Re-anchor to primary screen when displays change
+  function anchorToPrimary() {
+    if (!win) return
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize
+    win.setBounds({ x: 0, y: 0, width, height })
+  }
+  screen.on('display-added',   anchorToPrimary)
+  screen.on('display-removed', anchorToPrimary)
+  screen.on('display-metrics-changed', anchorToPrimary)
 
   globalShortcut.register('CommandOrControl+Shift+F', () => {
     if (!win) return

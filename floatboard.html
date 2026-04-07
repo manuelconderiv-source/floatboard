@@ -30,7 +30,7 @@ body {
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, transform 0.2s ease;
   overflow: hidden;
 }
 .card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.7); }
@@ -113,7 +113,6 @@ body {
 .card-body::-webkit-scrollbar-track { background: transparent; }
 .card-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.13); border-radius: 2px; }
 .card-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.26); }
-.card.minimized .card-body,
 .card.minimized .card-resize-handle { display: none; }
 
 /* ── BOTTOM RESIZE HANDLE ─────────────────────── */
@@ -294,6 +293,163 @@ body {
 .image-zone .upload-hint { display: flex; flex-direction: column; align-items: center; gap: 6px; color: rgba(255,255,255,0.28); font-size: 12px; }
 .image-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
+/* ── USAGE CARD ──────────────────────────────── */
+.usage-body { padding: 0; }
+.usage-bar-wrap {
+  height: 6px; border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden; margin-bottom: 10px;
+}
+.usage-bar {
+  height: 100%; border-radius: 3px;
+  background: #6366f1;
+  transition: width 0.5s ease, background 0.3s;
+  min-width: 2px;
+}
+.usage-bar.warn  { background: #fbbf24; }
+.usage-bar.crit  { background: #f87171; }
+.usage-stats {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; color: rgba(255,255,255,0.5);
+  margin-bottom: 6px;
+}
+.usage-count { font-size: 20px; font-weight: 600; color: rgba(255,255,255,0.9); }
+.usage-pct   { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); }
+.usage-reset { font-size: 10px; color: rgba(255,255,255,0.3); }
+.usage-plan-select {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px; color: rgba(255,255,255,0.7); font-size: 10px;
+  font-family: inherit; padding: 3px 6px; cursor: pointer;
+  outline: none; margin-top: 4px;
+}
+.usage-plan-select option { background: #1a1a1e; color: #fff; }
+
+/* Neumorphism usage overrides */
+body[data-theme="neumorphism"] .usage-bar-wrap {
+  background: rgba(163,177,198,0.2);
+  box-shadow: inset 2px 2px 4px rgba(163,177,198,0.3),
+              inset -2px -2px 4px rgba(255,255,255,0.5);
+}
+body[data-theme="neumorphism"] .usage-count { color: #2d3748; }
+body[data-theme="neumorphism"] .usage-pct   { color: #4a5568; }
+body[data-theme="neumorphism"] .usage-stats { color: #6b7c93; }
+body[data-theme="neumorphism"] .usage-reset { color: rgba(58,74,92,0.35); }
+body[data-theme="neumorphism"] .usage-plan-select {
+  background: #e0e5ec; border: none; color: #4a5568;
+  box-shadow: inset 2px 2px 4px rgba(163,177,198,0.3),
+              inset -2px -2px 4px rgba(255,255,255,0.5);
+}
+
+/* Glass usage overrides */
+body[data-theme="glass"] .usage-bar-wrap {
+  background: rgba(255,255,255,0.06);
+}
+body[data-theme="glass"] .usage-count { text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+body[data-theme="glass"] .usage-plan-select {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* ── SCHEDULE TIMELINE CARD ───────────────────── */
+.card-body.tl-body { padding: 6px 4px 6px 4px; }
+.tl-toolbar { display: flex; align-items: center; gap: 6px; padding: 0 10px 6px 10px; }
+.tl-toolbar .schedule-add-input { flex: 1; background: none; border: none; font-size: 11px; color: rgba(255,255,255,0.7); outline: none; font-family: inherit; }
+.tl-toolbar .schedule-add-input::placeholder { color: rgba(255,255,255,0.25); }
+.tl-container { position: relative; min-height: 40px; }
+.tl-gutter { position: absolute; left: 0; top: 0; bottom: 0; width: 36px; pointer-events: none; }
+.tl-hour-label { position: absolute; left: 0; width: 36px; font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.28); text-align: right; padding-right: 6px; line-height: 1; transform: translateY(-50%); user-select: none; }
+.tl-hour-line { position: absolute; left: 38px; right: 4px; height: 1px; background: rgba(255,255,255,0.04); pointer-events: none; }
+.tl-track { position: absolute; left: 42px; right: 4px; top: 0; bottom: 0; }
+.tl-block { position: absolute; left: 0; right: 0; min-height: 20px; background: rgba(var(--accent-rgb), 0.15); border-left: 3px solid var(--block-accent, #7c6dfa); border-radius: 0 6px 6px 0; padding: 4px 24px 4px 8px; cursor: grab; user-select: none; overflow: hidden; transition: background 0.15s, box-shadow 0.15s; }
+.tl-block:hover { background: rgba(var(--accent-rgb), 0.22); }
+.tl-block.tl-dragging { opacity: 0.85; box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 100; cursor: grabbing; transition: none; }
+.tl-block-time { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.45); line-height: 1; margin-bottom: 2px; white-space: nowrap; pointer-events: none; }
+.tl-block-text { font-size: 11.5px; color: rgba(255,255,255,0.88); line-height: 1.3; outline: none; background: transparent; border: none; cursor: text; user-select: text; font-family: inherit; min-width: 0; word-break: break-word; }
+.tl-block-text:focus { color: rgba(255,255,255,0.95); }
+.tl-block .schedule-check { position: absolute; top: 4px; right: 4px; width: 12px; height: 12px; border-radius: 3px; }
+.tl-block .schedule-check.checked::after { width: 6px; height: 3.5px; }
+.tl-block .schedule-delete { position: absolute; bottom: 2px; right: 4px; opacity: 0; background: none; border: none; color: rgba(255,100,100,0.6); cursor: pointer; font-size: 12px; line-height: 1; transition: opacity 0.15s; }
+.tl-block:hover .schedule-delete { opacity: 1; }
+.tl-block .schedule-delete:hover { color: #f87171; }
+.tl-block.tl-done { opacity: 0.3; background: rgba(var(--accent-rgb), 0.06); }
+.tl-block.tl-done .tl-block-text { text-decoration: line-through; }
+.tl-block-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
+.tl-block-resize::after { content: ''; position: absolute; left: 25%; right: 25%; bottom: 1px; height: 2px; border-radius: 1px; background: rgba(255,255,255,0); transition: background 0.15s; }
+.tl-block:hover .tl-block-resize::after { background: rgba(255,255,255,0.2); }
+.tl-drag-ghost { position: absolute; left: 42px; right: 4px; height: 2px; border-radius: 1px; pointer-events: none; display: none; }
+.tl-gap { position: absolute; left: 0; right: 0; height: 20px; display: flex; align-items: center; justify-content: center; }
+.tl-gap-dots { font-size: 12px; letter-spacing: 3px; color: rgba(255,255,255,0.12); user-select: none; }
+.tl-empty { padding: 20px 12px; text-align: center; color: rgba(255,255,255,0.18); font-size: 11px; }
+/* Schedule checkbox */
+.schedule-check {
+  width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0;
+  border: 1.5px solid rgba(255,255,255,0.2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.schedule-check.checked { border-color: var(--accent); background: var(--accent); }
+.schedule-check.checked::after {
+  content: ''; width: 7px; height: 4px;
+  border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff;
+  transform: rotate(-45deg) translateY(-1px);
+}
+
+/* Completed accordion */
+.schedule-completed-toggle {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  cursor: pointer; user-select: none;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(255,255,255,0.25);
+  transition: color 0.15s;
+}
+.schedule-completed-toggle:hover { color: rgba(255,255,255,0.45); }
+.schedule-completed-toggle svg { transition: transform 0.2s; }
+.schedule-completed-toggle.open svg { transform: rotate(90deg); }
+.schedule-completed-list { display: none; padding: 0 10px; }
+.schedule-completed-list.open { display: flex; flex-direction: column; gap: 2px; }
+.schedule-completed-item {
+  display: flex; align-items: center; gap: 6px; padding: 3px 0;
+  font-size: 11px; color: rgba(255,255,255,0.35); text-decoration: line-through;
+}
+
+/* Celebration burst */
+@keyframes scheduleCelebrate {
+  0%   { transform: scale(0); opacity: 0.8; }
+  50%  { transform: scale(1.2); opacity: 0.5; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.schedule-celebrate {
+  position: absolute; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); pointer-events: none; z-index: 10;
+  animation: scheduleCelebrate 0.4s ease-out forwards;
+}
+
+
+/* Neumorphism timeline overrides */
+body[data-theme="neumorphism"] .tl-hour-label { color: rgba(58,74,92,0.3); }
+body[data-theme="neumorphism"] .tl-hour-line { background: rgba(163,177,198,0.12); }
+body[data-theme="neumorphism"] .tl-block { background: rgba(163,177,198,0.12); }
+body[data-theme="neumorphism"] .tl-block:hover { background: rgba(163,177,198,0.2); }
+body[data-theme="neumorphism"] .tl-block-time { color: #6b7c93; }
+body[data-theme="neumorphism"] .tl-block-text { color: #4a5568; }
+body[data-theme="neumorphism"] .tl-block-text:focus { color: #2d3748; }
+body[data-theme="neumorphism"] .tl-block .schedule-delete { color: rgba(220,80,80,0.5); }
+body[data-theme="neumorphism"] .tl-block .schedule-check { border-color: rgba(163,177,198,0.4); }
+body[data-theme="neumorphism"] .tl-gap-dots { color: rgba(163,177,198,0.25); }
+body[data-theme="neumorphism"] .tl-empty { color: rgba(58,74,92,0.25); }
+body[data-theme="neumorphism"] .schedule-fmt-toggle { color: rgba(58,74,92,0.3); background: rgba(163,177,198,0.1); }
+body[data-theme="neumorphism"] .schedule-completed-toggle { color: rgba(58,74,92,0.25); }
+body[data-theme="neumorphism"] .tl-toolbar .schedule-add-input { color: #4a5568; }
+body[data-theme="neumorphism"] .schedule-completed-item { color: #a0aec0; }
+/* Glass timeline overrides */
+body[data-theme="glass"] .tl-hour-label { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .tl-block { background: rgba(255,255,255,0.08); backdrop-filter: blur(2px); }
+body[data-theme="glass"] .tl-block:hover { background: rgba(255,255,255,0.14); }
+body[data-theme="glass"] .tl-block-text { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .tl-gap-dots { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .schedule-completed-toggle { color: rgba(255,255,255,0.2); }
+body[data-theme="glass"] .schedule-check { border-color: rgba(255,255,255,0.25); }
+
 /* ── SHARED BUTTON BASE ───────────────────────── */
 .tb-btn {
   position: relative;
@@ -350,6 +506,165 @@ body {
 }
 #add-btn:hover { transform: scale(1.08); box-shadow: 0 4px 18px rgba(124,109,250,0.35); }
 #add-btn.open  { transform: rotate(45deg); }
+
+/* ── SETTINGS BUTTON — vertical stack, slot above close ─── */
+#settings-btn {
+  display: flex;
+  position: fixed;
+  bottom: 70px; right: 70px;
+  width: 38px; height: 38px; z-index: 1001;
+  opacity: 0; pointer-events: none;
+  transition: right  0.35s cubic-bezier(0.34,1.15,0.64,1),
+              bottom 0.35s cubic-bezier(0.34,1.15,0.64,1),
+              opacity 0.22s ease,
+              background 0.2s, border-color 0.2s, color 0.2s,
+              transform 0.15s ease;
+}
+#settings-btn svg { transition: transform 0.3s; }
+#settings-btn.open svg { transform: rotate(90deg); }
+/* Vertical stack bottom→top: settings(98) → pin(144) → min(190) → close(236) */
+body.toolbar-open #settings-btn    { bottom: 98px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 0ms; }
+body:not(.toolbar-open) #settings-btn { transition-delay: 0ms; }
+/* Non-Electron: only settings + pin visible in stack */
+body.no-electron.toolbar-open #settings-btn { bottom: 98px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 0ms; }
+/* Snapped left */
+body.snapped-left #settings-btn { right: auto; left: 70px; }
+body.snapped-left.toolbar-open #settings-btn { right: auto; left: 28px; bottom: 98px; }
+body.snapped-left.no-electron.toolbar-open #settings-btn { right: auto; left: 28px; bottom: 98px; }
+
+#settings-btn[data-tip]::after {
+  right: calc(100% + 8px);
+  bottom: auto; top: 50%; transform: translateY(-50%);
+}
+
+/* Settings panel — appears to the left of the gear */
+#settings-panel {
+  position: fixed; bottom: 76px; right: 76px;
+  background: #1c1c22;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 6px; display: none; flex-direction: column;
+  gap: 3px; box-shadow: 0 12px 40px rgba(0,0,0,0.7); z-index: 99999;
+  min-width: 180px;
+  transform-origin: bottom right;
+  animation: pickerIn 0.18s cubic-bezier(0.34,1.3,0.64,1);
+}
+#settings-panel.visible { display: flex; }
+body.snapped-left #settings-panel { right: auto; left: 76px; transform-origin: left center; }
+
+.settings-item {
+  background: none; border: none;
+  color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 500;
+  font-family: inherit; padding: 9px 12px; cursor: pointer; border-radius: 9px;
+  text-align: left; display: flex; align-items: center; gap: 10px;
+  transition: background 0.12s, color 0.12s; white-space: nowrap;
+}
+.settings-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.settings-item.danger { color: #f87171; }
+.settings-item.danger:hover { background: rgba(248,113,113,0.1); }
+.settings-item.active { color: #fff; background: rgba(99,102,241,0.12); }
+.settings-label { font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(255,255,255,0.25); padding: 6px 12px 2px; }
+.settings-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0; }
+
+/* ── THEMED CONFIRM MODAL ─────────────────────── */
+#confirm-modal {
+  position: fixed; inset: 0; z-index: 100000;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.5);
+}
+#confirm-modal.visible { display: flex; }
+.confirm-box {
+  background: #1c1c22; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px; padding: 20px 24px; min-width: 260px; max-width: 320px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  animation: pickerIn 0.18s cubic-bezier(0.34,1.3,0.64,1);
+}
+.confirm-msg { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.5; margin-bottom: 16px; }
+.confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.confirm-btn {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 7px 16px; font-size: 12px; font-weight: 600;
+  color: rgba(255,255,255,0.7); cursor: pointer; font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.confirm-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.confirm-btn.danger { background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.2); color: #f87171; }
+.confirm-btn.danger:hover { background: rgba(248,113,113,0.25); color: #ff8a8a; }
+
+/* Neumorphism overrides */
+body[data-theme="neumorphism"] #settings-panel { background: #e0e5ec; border: none; box-shadow: 8px 8px 16px rgba(0,0,0,0.15); }
+body[data-theme="neumorphism"] .settings-item { color: #4a5568; }
+body[data-theme="neumorphism"] .settings-item:hover { background: rgba(163,177,198,0.18); color: #2d3748; }
+body[data-theme="neumorphism"] .settings-item.active { color: #4338ca; background: rgba(99,102,241,0.1); }
+body[data-theme="neumorphism"] .settings-item.danger { color: #dc5050; }
+body[data-theme="neumorphism"] .settings-label { color: rgba(58,74,92,0.3); }
+body[data-theme="neumorphism"] .settings-divider { background: rgba(163,177,198,0.25); }
+body[data-theme="neumorphism"] .confirm-box { background: #e0e5ec; border: none; box-shadow: 8px 8px 20px rgba(0,0,0,0.2); }
+body[data-theme="neumorphism"] .confirm-msg { color: #3a4a5c; }
+body[data-theme="neumorphism"] .confirm-btn { background: rgba(163,177,198,0.2); border: none; color: #4a5568; }
+body[data-theme="neumorphism"] .confirm-btn.danger { background: rgba(220,80,80,0.12); color: #dc5050; }
+
+/* Glass overrides */
+body[data-theme="glass"] #settings-panel { background: rgba(20,20,30,0.7); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.15); }
+body[data-theme="glass"] .settings-item { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .settings-label { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .confirm-box { background: rgba(20,20,30,0.75); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.15); }
+body[data-theme="glass"] .confirm-msg { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+
+/* ── COLLECT DIRECTION POPUP ──────────────────── */
+#collect-popup {
+  position: fixed; display: none;
+  background: #1c1c22; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 4px; z-index: 1005;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  gap: 2px;
+}
+#collect-popup.visible { display: grid; grid-template-columns: 1fr 1fr; }
+.collect-dir {
+  background: none; border: none; border-radius: 6px;
+  width: 36px; height: 36px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.55); transition: background 0.12s, color 0.12s;
+}
+.collect-dir:hover { background: rgba(255,255,255,0.08); color: #fff; }
+body[data-theme="neumorphism"] #collect-popup { background: #e0e5ec; border: none; box-shadow: 6px 6px 14px rgba(0,0,0,0.15); }
+body[data-theme="neumorphism"] .collect-dir { color: #6b7c93; }
+body[data-theme="neumorphism"] .collect-dir:hover { background: rgba(163,177,198,0.2); color: #3a4a5c; }
+body[data-theme="glass"] #collect-popup { background: rgba(20,20,30,0.7); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.12); }
+
+/* ── MINIMIZE PILL — replaces full hide ────────── */
+#minimize-pill {
+  position: fixed; bottom: 12px; right: 12px;
+  display: none; align-items: center; gap: 8px;
+  background: rgba(20,20,28,0.9);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px; padding: 8px 16px 8px 12px;
+  cursor: pointer; z-index: 99999;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+  user-select: none; pointer-events: auto;
+}
+#minimize-pill:hover { background: rgba(30,30,40,0.95); box-shadow: 0 6px 28px rgba(0,0,0,0.5); transform: scale(1.03); }
+#minimize-pill.visible { display: flex; animation: pillIn 0.35s cubic-bezier(0.34,1.15,0.64,1); }
+@keyframes pillIn { from { opacity: 0; transform: scale(0.8) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.pill-icon {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #6366f1; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.pill-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.75); font-family: inherit; }
+body.snapped-left #minimize-pill { right: auto; left: 12px; }
+
+/* Neumorphism pill */
+body[data-theme="neumorphism"] #minimize-pill {
+  background: #e0e5ec; border: none;
+  box-shadow: 4px 4px 10px rgba(0,0,0,0.15), -2px -2px 6px rgba(255,255,255,0.12);
+}
+body[data-theme="neumorphism"] .pill-label { color: #4a5568; }
+/* Glass pill */
+body[data-theme="glass"] #minimize-pill {
+  background: rgba(20,20,30,0.65); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.14);
+}
 
 /* ── EXPAND TOGGLE (···) — lives at diagonal, never moves ──── */
 /* Same 8px edge gap as the vertical group spacing             */
@@ -423,13 +738,16 @@ body.electron #gb-min {
 }
 /* Opening — stack up from + origin, staggered bottom→top */
 /* Order: pin closest to +, min above, close at top       */
-body.toolbar-open #gb-pin   { bottom: 98px;  right: 28px; opacity: 1; pointer-events: auto; transition-delay: 0ms;  }
-body.toolbar-open #gb-min   { bottom: 144px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 40ms; }
-body.toolbar-open #gb-close { bottom: 190px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 80ms; }
+/* Order bottom→top: settings(98) → pin(144) → min(190) → close(236) */
+body.toolbar-open #gb-pin   { bottom: 144px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 40ms; }
+body.toolbar-open #gb-min   { bottom: 190px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 80ms; }
+body.toolbar-open #gb-close { bottom: 236px; right: 28px; opacity: 1; pointer-events: auto; transition-delay: 120ms; }
 /* Closing — reverse stagger */
+/* Closing — reverse stagger (top collapses first) */
 body:not(.toolbar-open) #gb-close { transition-delay: 0ms;  }
 body:not(.toolbar-open) #gb-min   { transition-delay: 40ms; }
 body:not(.toolbar-open) #gb-pin   { transition-delay: 80ms; }
+body:not(.toolbar-open) #settings-btn { transition-delay: 120ms; }
 
 #gb-close:hover { background: rgba(248,113,113,0.2) !important; color: #f87171 !important; }
 #gb-pin.pinned  { color: #fff !important; border-color: rgba(255,255,255,0.4) !important; }
@@ -456,9 +774,9 @@ body.snapped-left:not(.toolbar-open) #kofi-btn    { right: auto; left: 70px; }
 body.snapped-left.electron #gb-close,
 body.snapped-left.electron #gb-pin,
 body.snapped-left.electron #gb-min         { right: auto; left: 70px; }
-body.snapped-left.electron.toolbar-open #gb-pin   { right: auto; left: 28px; bottom: 98px;  }
-body.snapped-left.electron.toolbar-open #gb-min   { right: auto; left: 28px; bottom: 144px; }
-body.snapped-left.electron.toolbar-open #gb-close { right: auto; left: 28px; bottom: 190px; }
+body.snapped-left.electron.toolbar-open #gb-pin   { right: auto; left: 28px; bottom: 144px; }
+body.snapped-left.electron.toolbar-open #gb-min   { right: auto; left: 28px; bottom: 190px; }
+body.snapped-left.electron.toolbar-open #gb-close { right: auto; left: 28px; bottom: 236px; }
 
 /* Non-Electron snapped-left shifts */
 body.snapped-left.no-electron.toolbar-open #kofi-btn    { right: auto; left: 98px;  }
@@ -471,10 +789,13 @@ body.snapped-left.no-electron.toolbar-open #collect-btn { right: auto; left: 190
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: 16px;
   background: transparent;
-  pointer-events: auto;
+  pointer-events: none;
   box-sizing: border-box;
-  transition: border-color 0.3s ease;
 }
+.group-header, .group-ungroup-btn { pointer-events: auto; }
+.group-frame.group-locked .group-header { cursor: default; opacity: 0.7; }
+/* Prevent group frame from creating compositing layer that blurs children */
+.card.in-group { isolation: isolate; }
 .group-frame:hover {
   border-color: rgba(255,255,255,0.38);
 }
@@ -510,13 +831,13 @@ body.snapped-left.no-electron.toolbar-open #collect-btn { right: auto; left: 190
 .group-frame:hover .group-header { border-bottom-color: rgba(255,255,255,0.38); }
 .group-title {
   flex: 1; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
-  text-transform: uppercase; color: rgba(255,255,255,0.2);
+  text-transform: uppercase; color: rgba(255,255,255,0.4);
   outline: none; background: transparent; border: none;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-family: inherit; min-width: 0; cursor: inherit;
   transition: color 0.4s ease;
 }
-.group-frame:hover .group-title { color: rgba(255,255,255,0.55); }
+.group-frame:hover .group-title { color: rgba(255,255,255,0.7); }
 .group-title[contenteditable="true"] { cursor: text; color: rgba(255,255,255,0.85) !important; }
 .group-ungroup-btn {
   position: relative;
@@ -604,22 +925,769 @@ body.snapped-left.no-electron.toolbar-open #collect-btn { right: auto; left: 190
   -webkit-app-region: no-drag;
   pointer-events: none;
 }
+
+/* (Theme button removed — themes now in settings panel) */
+
+/* ── THEME PICKER ────────────────────────────────── */
+#theme-picker {
+  position: fixed; bottom: 236px; right: 76px;
+  background: #1c1c22;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 6px; display: none; flex-direction: column;
+  gap: 3px; box-shadow: 0 12px 40px rgba(0,0,0,0.7); z-index: 1004;
+  min-width: 160px;
+  transform-origin: bottom right;
+  animation: pickerIn 0.18s cubic-bezier(0.34,1.3,0.64,1);
+}
+#theme-picker.visible { display: flex; }
+body.snapped-left #theme-picker { right: auto; left: 76px; transform-origin: bottom left; }
+
+.theme-option {
+  background: none; border: none;
+  color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 500;
+  font-family: inherit; padding: 9px 12px; cursor: pointer; border-radius: 9px;
+  text-align: left; display: flex; align-items: center; gap: 11px;
+  transition: background 0.12s, color 0.12s; white-space: nowrap;
+}
+.theme-option:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.theme-option.active { color: #fff; background: rgba(99,102,241,0.15); }
+.theme-swatch {
+  width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.pro-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  background: rgba(99,102,241,0.2); color: #818cf8;
+  padding: 2px 5px; border-radius: 4px; margin-left: auto;
+}
+body.premium .pro-badge { display: none; }
+
+.theme-swatch.sw-default  { background: #1a1a1e; }
+.theme-swatch.sw-glass    { background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)); backdrop-filter: blur(4px); }
+.theme-swatch.sw-neu      { background: #1e1e24; box-shadow: 2px 2px 4px rgba(0,0,0,0.4), -1px -1px 3px rgba(255,255,255,0.04); }
+
+/* ── PREMIUM TOAST ───────────────────────────────── */
+#premium-toast {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  background: #2a2a32; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; padding: 8px 18px;
+  color: rgba(255,255,255,0.85); font-size: 12px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  z-index: 100000; pointer-events: none;
+  opacity: 0; transition: opacity 0.25s;
+}
+#premium-toast.show { opacity: 1; }
+
+/* ══════════════════════════════════════════════════
+   THEME: GLASS
+   Frosted translucent panels, soft light bleed,
+   warm tinted borders
+   ══════════════════════════════════════════════════ */
+body[data-theme="glass"] .card {
+  background: rgba(30,30,40,0.55);
+  backdrop-filter: blur(40px) saturate(1.4);
+  -webkit-backdrop-filter: blur(40px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3),
+              inset 0 1px 0 rgba(255,255,255,0.1);
+}
+body[data-theme="glass"] .card:hover {
+  box-shadow: 0 12px 44px rgba(0,0,0,0.4),
+              inset 0 1px 0 rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.22);
+}
+body[data-theme="glass"] .card-header {
+  background: rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+body[data-theme="glass"] .card.selected .card-header {
+  background: rgba(255,255,255,0.1);
+}
+body[data-theme="glass"] .card-accent { opacity: 0.8; }
+body[data-theme="glass"] .card-title {
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+body[data-theme="glass"] .card-body {
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+body[data-theme="glass"] .text-content {
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+body[data-theme="glass"] .todo-checkbox { border-color: rgba(255,255,255,0.25); }
+body[data-theme="glass"] .todo-text {
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+body[data-theme="glass"] .todo-item.done .todo-text { opacity: 0.4; }
+body[data-theme="glass"] .todo-add-input { color: rgba(255,255,255,0.8); }
+body[data-theme="glass"] .lock-icon { text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+body[data-theme="glass"] .group-title {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  color: rgba(255,255,255,0.5);
+}
+body[data-theme="glass"] .group-frame:hover .group-title { color: rgba(255,255,255,0.8); }
+body[data-theme="glass"] #picker,
+body[data-theme="glass"] #ctx-menu,
+body[data-theme="glass"] #fmt-toolbar,
+body[data-theme="glass"] #theme-picker {
+  background: rgba(20,20,30,0.7);
+  backdrop-filter: blur(40px) saturate(1.3);
+  -webkit-backdrop-filter: blur(40px) saturate(1.3);
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.45),
+              inset 0 1px 0 rgba(255,255,255,0.08);
+}
+body[data-theme="glass"] .ctx-item { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .tb-btn {
+  background: rgba(30,30,40,0.5) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25),
+              inset 0 1px 0 rgba(255,255,255,0.07);
+}
+body[data-theme="glass"] .tb-btn:hover {
+  background: rgba(255,255,255,0.12) !important;
+  border-color: rgba(255,255,255,0.22) !important;
+}
+body[data-theme="glass"] #add-btn {
+  box-shadow: 0 4px 20px rgba(99,102,241,0.35),
+              inset 0 1px 0 rgba(255,255,255,0.18) !important;
+}
+body[data-theme="glass"] .group-frame {
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(30,30,40,0.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+body[data-theme="glass"] .group-header {
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+body[data-theme="glass"] .tb-btn[data-tip]::after {
+  background: rgba(20,20,30,0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.12);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+body[data-theme="glass"] .image-zone {
+  border-color: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+}
+body[data-theme="glass"] .card-resize-handle:hover::after,
+body[data-theme="glass"] .card-resize-handle.resizing::after {
+  background: rgba(255,255,255,0.18);
+}
+
+/* ══════════════════════════════════════════════════
+   THEME: NEUMORPHISM
+   Soft embossed look — light gray surface with
+   dual-shadow depth (like your reference images)
+   ══════════════════════════════════════════════════ */
+/* Canvas stays transparent — apps visible behind */
+
+body[data-theme="neumorphism"] .card {
+  background: #e0e5ec;
+  border: none;
+  border-radius: 0 18px 18px 0;
+  box-shadow: 8px 8px 16px rgba(0,0,0,0.25);
+}
+body[data-theme="neumorphism"] .card:hover {
+  box-shadow: 10px 10px 22px rgba(0,0,0,0.3);
+}
+/* Inside a group frame the opaque bg makes full neumorphic shadows work */
+body[data-theme="neumorphism"] .card.in-group {
+  box-shadow: 6px 6px 12px rgba(163,177,198,0.35),
+              -4px -4px 10px rgba(255,255,255,0.45);
+}
+body[data-theme="neumorphism"] .card.in-group:hover {
+  box-shadow: 8px 8px 16px rgba(163,177,198,0.4),
+              -5px -5px 12px rgba(255,255,255,0.5);
+}
+body[data-theme="neumorphism"] .card-accent { opacity: 0.6; }
+body[data-theme="neumorphism"] .card-header {
+  background: transparent;
+  border-bottom: none;
+  box-shadow: inset 0 -1px 0 rgba(163,177,198,0.25);
+}
+body[data-theme="neumorphism"] .card-title { color: #3a4a5c; }
+body[data-theme="neumorphism"] .card.selected .card-header {
+  background: rgba(163,177,198,0.12);
+}
+body[data-theme="neumorphism"] .card-btn { color: rgba(58,74,92,0.45); }
+body[data-theme="neumorphism"] .card-btn:hover { background: rgba(163,177,198,0.2); color: #3a4a5c; }
+body[data-theme="neumorphism"] .delete-btn { color: rgba(220,80,80,0.5) !important; }
+body[data-theme="neumorphism"] .delete-btn:hover { background: rgba(220,80,80,0.1) !important; color: #dc5050 !important; }
+
+body[data-theme="neumorphism"] .text-content { color: #4a5568; }
+body[data-theme="neumorphism"] .text-content:focus { color: #2d3748; }
+body[data-theme="neumorphism"] .text-content:empty::before { color: rgba(58,74,92,0.25); }
+body[data-theme="neumorphism"] .todo-checkbox {
+  border-color: rgba(163,177,198,0.5);
+  background: #e0e5ec;
+  box-shadow: inset 2px 2px 4px rgba(163,177,198,0.4),
+              inset -2px -2px 4px rgba(255,255,255,0.7);
+}
+body[data-theme="neumorphism"] .todo-text { color: #4a5568; }
+body[data-theme="neumorphism"] .todo-text:focus { color: #2d3748; }
+body[data-theme="neumorphism"] .todo-item.done .todo-text { color: #a0aec0; }
+body[data-theme="neumorphism"] .todo-add-input { color: #4a5568; }
+body[data-theme="neumorphism"] .todo-add-input::placeholder { color: rgba(58,74,92,0.3); }
+body[data-theme="neumorphism"] .todo-delete { color: rgba(220,80,80,0.4); }
+body[data-theme="neumorphism"] .todo-delete:hover { color: #dc5050; }
+body[data-theme="neumorphism"] .drag-handle { color: rgba(163,177,198,0.5); }
+
+body[data-theme="neumorphism"] .lock-icon { color: #6b7c93; }
+
+body[data-theme="neumorphism"] .card-body {
+  scrollbar-color: rgba(163,177,198,0.4) transparent;
+}
+
+body[data-theme="neumorphism"] #picker,
+body[data-theme="neumorphism"] #ctx-menu,
+body[data-theme="neumorphism"] #fmt-toolbar,
+body[data-theme="neumorphism"] #theme-picker {
+  background: #e0e5ec;
+  border: none;
+  box-shadow: 8px 8px 16px rgba(0,0,0,0.2);
+}
+body[data-theme="neumorphism"] .ctx-item { color: #3a4a5c; }
+body[data-theme="neumorphism"] .ctx-item:hover { background: rgba(163,177,198,0.18); }
+body[data-theme="neumorphism"] .ctx-item.danger { color: #dc5050; }
+body[data-theme="neumorphism"] .ctx-divider { background: rgba(163,177,198,0.3); }
+body[data-theme="neumorphism"] .picker-btn { color: #4a5568; }
+body[data-theme="neumorphism"] .picker-btn:hover { background: rgba(163,177,198,0.18); color: #2d3748; }
+body[data-theme="neumorphism"] .picker-arrow { color: rgba(163,177,198,0.5); }
+body[data-theme="neumorphism"] .theme-option { color: #4a5568; }
+body[data-theme="neumorphism"] .theme-option:hover { background: rgba(163,177,198,0.18); color: #2d3748; }
+body[data-theme="neumorphism"] .theme-option.active { background: rgba(99,102,241,0.1); color: #4338ca; }
+
+body[data-theme="neumorphism"] #fmt-toolbar button { color: #6b7c93; }
+body[data-theme="neumorphism"] #fmt-toolbar button:hover { background: rgba(163,177,198,0.2); color: #3a4a5c; }
+
+body[data-theme="neumorphism"] .tb-btn {
+  background: #e0e5ec !important;
+  border: none !important;
+  color: #6b7c93 !important;
+  box-shadow: 4px 4px 8px rgba(0,0,0,0.18),
+              -2px -2px 6px rgba(255,255,255,0.12);
+}
+body[data-theme="neumorphism"] .tb-btn:hover {
+  color: #3a4a5c !important;
+  box-shadow: 5px 5px 10px rgba(0,0,0,0.22),
+              -3px -3px 8px rgba(255,255,255,0.15);
+}
+body[data-theme="neumorphism"] .tb-btn:active {
+  box-shadow: inset 3px 3px 6px rgba(163,177,198,0.5),
+              inset -3px -3px 6px rgba(255,255,255,0.7);
+}
+body[data-theme="neumorphism"] #add-btn {
+  background: #6366f1 !important;
+  color: #fff !important;
+  box-shadow: 5px 5px 12px rgba(0,0,0,0.22),
+              -2px -2px 8px rgba(255,255,255,0.1),
+              0 4px 12px rgba(99,102,241,0.25) !important;
+}
+body[data-theme="neumorphism"] .group-frame {
+  border: none;
+  border-radius: 22px;
+  background: rgba(224,229,236,0.75);
+  box-shadow: 4px 4px 10px rgba(0,0,0,0.15),
+              -2px -2px 8px rgba(255,255,255,0.2);
+}
+body[data-theme="neumorphism"] .group-header {
+  border-bottom: none;
+  box-shadow: inset 0 -1px 0 rgba(163,177,198,0.2);
+}
+body[data-theme="neumorphism"] .group-title { color: #4a5568; font-weight: 700; }
+body[data-theme="neumorphism"] .group-frame:hover .group-title { color: #2d3748; }
+body[data-theme="neumorphism"] .group-ungroup-btn { color: rgba(58,74,92,0.25); }
+body[data-theme="neumorphism"] .group-ungroup-btn:hover { color: #dc5050; background: rgba(220,80,80,0.1); }
+
+body[data-theme="neumorphism"] .tb-btn[data-tip]::after {
+  background: #e0e5ec;
+  border: none;
+  color: #4a5568;
+  box-shadow: 4px 4px 8px rgba(0,0,0,0.18);
+}
+body[data-theme="neumorphism"] .image-zone {
+  border-color: rgba(163,177,198,0.3);
+  background: rgba(163,177,198,0.08);
+}
+body[data-theme="neumorphism"] .image-zone:hover {
+  border-color: rgba(163,177,198,0.5);
+}
+body[data-theme="neumorphism"] .image-zone .upload-hint { color: rgba(58,74,92,0.35); }
+body[data-theme="neumorphism"] .card-resize-handle:hover::after,
+body[data-theme="neumorphism"] .card-resize-handle.resizing::after {
+  background: rgba(163,177,198,0.4);
+}
+body[data-theme="neumorphism"] .card-edge-resize:hover::after,
+body[data-theme="neumorphism"] .card-edge-resize.resizing::after {
+  background: rgba(163,177,198,0.35);
+}
+body[data-theme="neumorphism"] #empty-state { color: #a0aec0; }
+body[data-theme="neumorphism"] #empty-state strong { color: #8793a5; }
+body[data-theme="neumorphism"] #version-label { color: rgba(58,74,92,0.15); }
+body[data-theme="neumorphism"] .pro-badge { background: rgba(99,102,241,0.15); color: #6366f1; }
+
+/* ══════════════════════════════════════════════════
+   MICRO-INTERACTIONS & ANIMATIONS
+   ══════════════════════════════════════════════════ */
+
+/* ── Card spawn animation ─────────────────────── */
+@keyframes cardSpawn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+.card.spawning {
+  animation: cardSpawn 0.25s cubic-bezier(0.34, 1.3, 0.64, 1) forwards;
+}
+
+/* ── Card delete animation ────────────────────── */
+@keyframes cardDelete {
+  to { opacity: 0; transform: scale(0.88); }
+}
+.card.deleting {
+  animation: cardDelete 0.2s ease-out forwards;
+  pointer-events: none;
+}
+
+/* ── Card hover lift (disabled — causes blur on grouped cards) ──
+.card:hover:not(.dragging):not(.deleting):not(.spawning) {
+  transform: translateY(-2px);
+} */
+
+/* ── Button press feedback ────────────────────── */
+.card-btn:active,
+.picker-btn:active,
+.theme-option:active,
+.ctx-item:active,
+.schedule-fmt-toggle:active,
+#toolbar-expand:active { transform: scale(0.92); }
+
+/* ── Checkbox bounce animation ────────────────── */
+@keyframes checkBounce {
+  0%   { transform: scale(1);   }
+  35%  { transform: scale(1.25); }
+  60%  { transform: scale(0.9);  }
+  80%  { transform: scale(1.08); }
+  100% { transform: scale(1);    }
+}
+.todo-checkbox.checking,
+.schedule-check.checking {
+  animation: checkBounce 0.35s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+/* ── Todo item completion ─────────────────────── */
+.todo-item .todo-text {
+  transition: opacity 0.3s ease, text-decoration-color 0.3s ease;
+}
+.todo-item.done .todo-text {
+  text-decoration-color: rgba(255,255,255,0.4);
+}
+
+/* ── Toast notification slide-in ──────────────── */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);     }
+}
+#premium-toast.show {
+  animation: toastIn 0.3s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+/* ── Picker menu item stagger ─────────────────── */
+#picker.visible .picker-btn {
+  animation: pickerItemIn 0.2s cubic-bezier(0.34, 1.15, 0.64, 1) backwards;
+}
+@keyframes pickerItemIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+#picker.visible .picker-btn:nth-of-type(1) { animation-delay: 0ms;   }
+#picker.visible .picker-btn:nth-of-type(2) { animation-delay: 30ms;  }
+#picker.visible .picker-btn:nth-of-type(3) { animation-delay: 60ms;  }
+
+/* ── Context menu appear animation ────────────── */
+@keyframes ctxMenuIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+#ctx-menu.visible {
+  animation: ctxMenuIn 0.15s cubic-bezier(0.34, 1.3, 0.64, 1);
+  transform-origin: top left;
+}
+
+/* ── Group frame — no layout transitions (causes blur on children) ── */
+.group-frame.group-dragging { transition: none; }
+
+/* ── Card minimize/expand height animation ────── */
+.card .card-body {
+  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
+  overflow: hidden;
+}
+.card.minimized .card-body {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  flex: 0 0 0 !important;
+  opacity: 0;
+  padding: 0 !important;
+  overflow: hidden;
+}
+.card.minimized .card-edge-resize,
+.card.minimized .card-corner-resize { display: none; }
+
+/* ── Pulse on + button when no cards exist ────── */
+@keyframes addBtnPulse {
+  0%   { box-shadow: 0 2px 12px rgba(124,109,250,0.25); }
+  50%  { box-shadow: 0 2px 24px rgba(124,109,250,0.55), 0 0 0 8px rgba(99,102,241,0.12); }
+  100% { box-shadow: 0 2px 12px rgba(124,109,250,0.25); }
+}
+#add-btn.pulsing {
+  animation: addBtnPulse 2s ease-in-out infinite;
+}
+
+/* ── Performance: will-change hints ───────────── */
+/* will-change only on active states, not hover (prevents blur) */
+.card.dragging  { will-change: left, top; }
+.card.spawning  { will-change: transform, opacity; }
+.card.deleting  { will-change: transform, opacity; }
+.tl-block.tl-dragging { will-change: top; }
+.group-hold-ring { will-change: background; }
+/* .tb-btn will-change removed — causes rendering artifacts */
+
+/* ── Focus-visible styles for keyboard nav ────── */
+*:focus-visible {
+  outline: 2px solid rgba(99,102,241,0.7);
+  outline-offset: 2px;
+}
+.card-btn:focus-visible,
+.tb-btn:focus-visible {
+  outline: 2px solid rgba(99,102,241,0.7);
+  outline-offset: 1px;
+}
+.todo-checkbox:focus-visible,
+.schedule-check:focus-visible {
+  outline: 2px solid rgba(99,102,241,0.7);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Suppress default outline for mouse interactions */
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Neumorphism focus overrides ──────────────── */
+body[data-theme="neumorphism"] *:focus-visible {
+  outline-color: rgba(99,102,241,0.8);
+}
+
+/* ══════════════════════════════════════════════════
+   ACCESSIBILITY: CONTRAST FIXES
+   ══════════════════════════════════════════════════ */
+
+/* ── Default theme: placeholder contrast ──────── */
+.text-content:empty::before { color: rgba(255,255,255,0.3); }
+.todo-add-input::placeholder { color: rgba(255,255,255,0.4); }
+
+/* ── Default theme: delete button visibility ──── */
+.delete-btn { color: rgba(255,100,100,0.7); }
+
+/* ── Default theme: time labels readability ───── */
+.tl-block-time { color: rgba(255,255,255,0.55); }
+.tl-hour-label { color: rgba(255,255,255,0.38); }
+
+/* ── Glass theme: ensure text is legible ──────── */
+body[data-theme="glass"] .text-content:empty::before { color: rgba(255,255,255,0.35); }
+body[data-theme="glass"] .todo-add-input::placeholder { color: rgba(255,255,255,0.4); }
+body[data-theme="glass"] .tl-block-time { color: rgba(255,255,255,0.6); text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+body[data-theme="glass"] .tl-hour-label { color: rgba(255,255,255,0.45); }
+body[data-theme="glass"] .delete-btn { color: rgba(255,100,100,0.75); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .card-btn { color: rgba(255,255,255,0.55); }
+body[data-theme="glass"] .usage-reset { color: rgba(255,255,255,0.35); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .usage-stats { color: rgba(255,255,255,0.55); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .schedule-completed-item { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+
+/* ── Neumorphism theme: improve low-contrast text */
+body[data-theme="neumorphism"] .card-title { color: #2d3748; }
+body[data-theme="neumorphism"] .text-content { color: #3a4a5c; }
+body[data-theme="neumorphism"] .text-content:empty::before { color: rgba(58,74,92,0.35); }
+body[data-theme="neumorphism"] .todo-text { color: #3a4a5c; }
+body[data-theme="neumorphism"] .todo-add-input::placeholder { color: rgba(58,74,92,0.4); }
+body[data-theme="neumorphism"] .delete-btn { color: rgba(220,80,80,0.65) !important; }
+body[data-theme="neumorphism"] .tl-block-time { color: #556680; }
+body[data-theme="neumorphism"] .tl-hour-label { color: rgba(58,74,92,0.4); }
+body[data-theme="neumorphism"] .usage-reset { color: rgba(58,74,92,0.45); }
+body[data-theme="neumorphism"] .card-btn { color: rgba(58,74,92,0.55); }
+body[data-theme="neumorphism"] .schedule-completed-toggle { color: rgba(58,74,92,0.35); }
+
+/* ── POMODORO CARD ────────────────────────────── */
+.pomodoro-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; }
+.pomodoro-ring-wrap { position: relative; width: 110px; height: 110px; }
+.pomodoro-ring { width: 110px; height: 110px; transform: rotate(-90deg); }
+.pomodoro-ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 6; }
+.pomodoro-ring-fg { fill: none; stroke: var(--accent, #7c6dfa); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 0.5s linear; }
+.pomodoro-time { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pomodoro-time-display { font-size: 26px; font-weight: 600; color: rgba(255,255,255,0.92); letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.pomodoro-phase { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.pomodoro-session { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 2px; }
+.pomodoro-controls { display: flex; gap: 8px; align-items: center; }
+.pomodoro-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 6px 14px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.75); cursor: pointer; font-family: inherit; transition: background 0.15s, color 0.15s; }
+.pomodoro-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.pomodoro-btn.active { background: var(--accent, #7c6dfa); border-color: transparent; color: #fff; }
+.pomodoro-settings { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 0 4px; }
+.pomodoro-setting-row { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: rgba(255,255,255,0.4); }
+.pomodoro-setting-row input { width: 42px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 2px 4px; font-size: 10px; color: rgba(255,255,255,0.7); text-align: center; font-family: inherit; outline: none; }
+.pomodoro-setting-row input:focus { border-color: rgba(255,255,255,0.25); }
+
+/* Pomodoro — neumorphism overrides */
+body[data-theme="neumorphism"] .pomodoro-ring-bg { stroke: rgba(163,177,198,0.2); }
+body[data-theme="neumorphism"] .pomodoro-time-display { color: #2d3748; }
+body[data-theme="neumorphism"] .pomodoro-phase { color: #6b7c93; }
+body[data-theme="neumorphism"] .pomodoro-session { color: #8a9ab5; }
+body[data-theme="neumorphism"] .pomodoro-btn { background: #e0e5ec; border: none; color: #4a5568; box-shadow: 3px 3px 6px rgba(163,177,198,0.4), -3px -3px 6px rgba(255,255,255,0.7); }
+body[data-theme="neumorphism"] .pomodoro-btn:hover { color: #2d3748; }
+body[data-theme="neumorphism"] .pomodoro-btn.active { box-shadow: none; color: #fff; }
+body[data-theme="neumorphism"] .pomodoro-setting-row { color: #6b7c93; }
+body[data-theme="neumorphism"] .pomodoro-setting-row input { background: #e0e5ec; border: none; color: #4a5568; box-shadow: inset 2px 2px 4px rgba(163,177,198,0.3), inset -2px -2px 4px rgba(255,255,255,0.5); }
+
+/* Pomodoro — glass overrides */
+body[data-theme="glass"] .pomodoro-ring-bg { stroke: rgba(255,255,255,0.06); }
+body[data-theme="glass"] .pomodoro-time-display { text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+body[data-theme="glass"] .pomodoro-phase { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .pomodoro-btn { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); backdrop-filter: blur(4px); }
+body[data-theme="glass"] .pomodoro-btn:hover { background: rgba(255,255,255,0.12); }
+body[data-theme="glass"] .pomodoro-setting-row input { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+
+/* ── OPACITY SLIDER (context menu) ───────────── */
+.ctx-opacity-row { display: flex; align-items: center; gap: 8px; padding: 4px 12px 8px; }
+.ctx-opacity-row input[type="range"] { flex: 1; height: 4px; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none; cursor: pointer; }
+.ctx-opacity-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; border: none; }
+.ctx-opacity-row span { font-size: 10px; color: rgba(255,255,255,0.4); min-width: 28px; text-align: right; }
+body[data-theme="neumorphism"] .ctx-opacity-row input[type="range"] { background: rgba(163,177,198,0.25); }
+body[data-theme="neumorphism"] .ctx-opacity-row input[type="range"]::-webkit-slider-thumb { background: #4a5568; }
+body[data-theme="neumorphism"] .ctx-opacity-row span { color: #6b7c93; }
+body[data-theme="glass"] .ctx-opacity-row input[type="range"] { background: rgba(255,255,255,0.08); }
+
+/* ── TEMPLATES LIST (settings panel) ─────────── */
+.template-list { display: flex; flex-direction: column; gap: 2px; max-height: 180px; overflow-y: auto; }
+.template-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: background 0.12s; }
+.template-item:hover { background: rgba(255,255,255,0.07); }
+.template-name { flex: 1; font-size: 12px; color: rgba(255,255,255,0.75); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.template-delete { background: none; border: none; color: rgba(255,100,100,0.5); cursor: pointer; font-size: 13px; opacity: 0; transition: opacity 0.15s; padding: 0 2px; }
+.template-item:hover .template-delete { opacity: 1; }
+.template-delete:hover { color: #f87171; }
+body[data-theme="neumorphism"] .template-name { color: #4a5568; }
+body[data-theme="neumorphism"] .template-item:hover { background: rgba(163,177,198,0.18); }
+body[data-theme="glass"] .template-item:hover { background: rgba(255,255,255,0.08); }
+
+/* ── PICKER CATEGORIES ──────────────────────────── */
+.picker-category-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(255,255,255,0.3);
+  padding: 8px 12px 2px; display: flex; align-items: center; gap: 6px;
+}
+.picker-category-label .pro-badge { margin-left: 0; }
+.picker-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0; }
+.picker-fav-section { background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 2px; }
+.picker-fav-section .picker-btn { padding: 7px 12px; }
+body[data-theme="glass"] .picker-category-label { color: rgba(255,255,255,0.35); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .picker-divider { background: rgba(255,255,255,0.08); }
+body[data-theme="glass"] .picker-fav-section { background: rgba(255,255,255,0.04); }
+body[data-theme="neumorphism"] .picker-category-label { color: #8a9ab5; }
+body[data-theme="neumorphism"] .picker-divider { background: rgba(163,177,198,0.3); }
+body[data-theme="neumorphism"] .picker-fav-section { background: rgba(163,177,198,0.08); }
+
+/* ── PICKER CONTEXT MENU (favorites) ────────────── */
+.picker-ctx-menu {
+  position: fixed; z-index: 1010;
+  background: #1c1c22; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 4px; min-width: 160px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+  animation: ctxMenuIn 0.15s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.picker-ctx-menu button {
+  display: block; width: 100%; background: none; border: none;
+  color: rgba(255,255,255,0.75); font-size: 12px; font-weight: 500;
+  font-family: inherit; padding: 7px 12px; border-radius: 6px;
+  cursor: pointer; text-align: left; transition: background 0.12s;
+}
+.picker-ctx-menu button:hover { background: rgba(255,255,255,0.08); color: #fff; }
+body[data-theme="glass"] .picker-ctx-menu {
+  background: rgba(20,20,30,0.7); backdrop-filter: blur(40px);
+  border-color: rgba(255,255,255,0.15);
+}
+body[data-theme="neumorphism"] .picker-ctx-menu {
+  background: #e0e5ec; border: none;
+  box-shadow: 6px 6px 12px rgba(0,0,0,0.18);
+}
+body[data-theme="neumorphism"] .picker-ctx-menu button { color: #4a5568; }
+body[data-theme="neumorphism"] .picker-ctx-menu button:hover { background: rgba(163,177,198,0.18); color: #2d3748; }
+
+/* ── STOPWATCH CARD ─────────────────────────────── */
+.stopwatch-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 8px; }
+.stopwatch-display { font-size: 32px; font-weight: 600; color: rgba(255,255,255,0.92); letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.stopwatch-ms { font-size: 18px; opacity: 0.5; }
+.stopwatch-controls { display: flex; gap: 8px; align-items: center; }
+.stopwatch-btn {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 6px 14px; font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,0.75); cursor: pointer; font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.stopwatch-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.stopwatch-btn.active { background: var(--accent, #06b6d4); border-color: transparent; color: #fff; }
+.stopwatch-laps { width: 100%; max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.stopwatch-lap {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 8px; font-size: 11px; color: rgba(255,255,255,0.5);
+  border-radius: 4px;
+}
+.stopwatch-lap:nth-child(odd) { background: rgba(255,255,255,0.02); }
+.stopwatch-lap-num { color: rgba(255,255,255,0.3); font-weight: 600; }
+.stopwatch-lap-time { font-variant-numeric: tabular-nums; color: rgba(255,255,255,0.7); }
+.stopwatch-lap-diff { font-variant-numeric: tabular-nums; color: rgba(255,255,255,0.35); font-size: 10px; }
+
+/* Stopwatch — neumorphism */
+body[data-theme="neumorphism"] .stopwatch-display { color: #2d3748; }
+body[data-theme="neumorphism"] .stopwatch-btn { background: #e0e5ec; border: none; color: #4a5568; box-shadow: 3px 3px 6px rgba(163,177,198,0.4), -3px -3px 6px rgba(255,255,255,0.7); }
+body[data-theme="neumorphism"] .stopwatch-btn:hover { color: #2d3748; }
+body[data-theme="neumorphism"] .stopwatch-btn.active { box-shadow: none; color: #fff; }
+body[data-theme="neumorphism"] .stopwatch-lap { color: #6b7c93; }
+body[data-theme="neumorphism"] .stopwatch-lap-num { color: #8a9ab5; }
+body[data-theme="neumorphism"] .stopwatch-lap-time { color: #4a5568; }
+body[data-theme="neumorphism"] .stopwatch-lap-diff { color: #8a9ab5; }
+
+/* Stopwatch — glass */
+body[data-theme="glass"] .stopwatch-display { text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+body[data-theme="glass"] .stopwatch-btn { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); backdrop-filter: blur(4px); }
+body[data-theme="glass"] .stopwatch-btn:hover { background: rgba(255,255,255,0.12); }
+
+/* ── COUNTDOWN CARD ─────────────────────────────── */
+.countdown-wrap { display: flex; flex-direction: column; gap: 10px; padding: 10px 10px; }
+.countdown-label-input {
+  background: none; border: none; outline: none; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4);
+  font-family: inherit; width: 100%; padding: 0;
+}
+.countdown-label-input:focus { color: rgba(255,255,255,0.7); }
+.countdown-date-input {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; padding: 5px 8px; font-size: 12px;
+  color: rgba(255,255,255,0.7); font-family: inherit; outline: none; width: 100%;
+  color-scheme: dark;
+}
+.countdown-date-input:focus { border-color: rgba(255,255,255,0.25); }
+.countdown-display { font-size: 22px; font-weight: 600; color: rgba(255,255,255,0.92); text-align: center; line-height: 1.3; }
+.countdown-display-small { font-size: 11px; color: rgba(255,255,255,0.4); text-align: center; }
+.countdown-progress { width: 100%; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+.countdown-progress-fill { height: 100%; background: var(--accent, #ef4444); border-radius: 2px; transition: width 0.5s ease; }
+.countdown-today { color: var(--accent, #ef4444) !important; }
+.countdown-past { opacity: 0.6; }
+
+/* Countdown — neumorphism */
+body[data-theme="neumorphism"] .countdown-label-input { color: #8a9ab5; }
+body[data-theme="neumorphism"] .countdown-label-input:focus { color: #4a5568; }
+body[data-theme="neumorphism"] .countdown-date-input { background: #e0e5ec; border: none; color: #4a5568; box-shadow: inset 2px 2px 4px rgba(163,177,198,0.3), inset -2px -2px 4px rgba(255,255,255,0.5); color-scheme: light; }
+body[data-theme="neumorphism"] .countdown-display { color: #2d3748; }
+body[data-theme="neumorphism"] .countdown-display-small { color: #8a9ab5; }
+body[data-theme="neumorphism"] .countdown-progress { background: rgba(163,177,198,0.2); }
+
+/* Countdown — glass */
+body[data-theme="glass"] .countdown-display { text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+body[data-theme="glass"] .countdown-label-input { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .countdown-date-input { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+body[data-theme="glass"] .countdown-progress { background: rgba(255,255,255,0.06); }
+
+/* ── HABIT TRACKER CARD ─────────────────────────── */
+.habits-wrap { display: flex; flex-direction: column; gap: 4px; padding: 8px 6px; }
+.habits-header {
+  display: grid; grid-template-columns: 1fr repeat(7, 22px) 20px 16px;
+  gap: 2px; padding: 0 4px 4px; align-items: center;
+}
+.habits-day-label { font-size: 9px; font-weight: 600; text-align: center; color: rgba(255,255,255,0.25); text-transform: uppercase; }
+.habits-day-label.today { color: var(--accent, #10b981); }
+.habits-row {
+  display: grid; grid-template-columns: 1fr repeat(7, 22px) 20px 16px;
+  gap: 2px; padding: 4px; border-radius: 6px; align-items: center;
+  transition: background 0.12s;
+}
+.habits-row:hover { background: rgba(255,255,255,0.03); }
+.habits-name {
+  font-size: 12px; color: rgba(255,255,255,0.75); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.habits-check {
+  width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid rgba(255,255,255,0.15);
+  background: none; cursor: default; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s; padding: 0;
+}
+.habits-check.checked { background: var(--accent, #10b981); border-color: var(--accent, #10b981); }
+.habits-check.checked::after { content: '\2713'; color: #fff; font-size: 10px; font-weight: 700; }
+.habits-check.clickable { cursor: pointer; border-color: rgba(255,255,255,0.3); }
+.habits-check.clickable:hover { border-color: var(--accent, #10b981); background: rgba(16,185,129,0.1); }
+.habits-streak { font-size: 9px; color: rgba(255,255,255,0.3); text-align: center; font-weight: 600; }
+.habits-streak.active { color: var(--accent, #10b981); }
+.habits-delete {
+  background: none; border: none; color: rgba(255,100,100,0.4); cursor: pointer;
+  font-size: 13px; padding: 0; opacity: 0; transition: opacity 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.habits-row:hover .habits-delete { opacity: 1; }
+.habits-delete:hover { color: #f87171; }
+.habits-add {
+  display: flex; gap: 4px; padding: 4px 4px 0;
+}
+.habits-add-input {
+  flex: 1; background: none; border: none; outline: none;
+  font-size: 11px; color: rgba(255,255,255,0.6); font-family: inherit;
+  padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.habits-add-input::placeholder { color: rgba(255,255,255,0.2); }
+
+/* Habits — neumorphism */
+body[data-theme="neumorphism"] .habits-day-label { color: #8a9ab5; }
+body[data-theme="neumorphism"] .habits-name { color: #4a5568; }
+body[data-theme="neumorphism"] .habits-check { border-color: rgba(163,177,198,0.5); background: #e0e5ec; box-shadow: inset 1px 1px 2px rgba(163,177,198,0.3), inset -1px -1px 2px rgba(255,255,255,0.5); }
+body[data-theme="neumorphism"] .habits-check.checked { box-shadow: none; }
+body[data-theme="neumorphism"] .habits-check.clickable { border-color: rgba(163,177,198,0.6); }
+body[data-theme="neumorphism"] .habits-streak { color: #8a9ab5; }
+body[data-theme="neumorphism"] .habits-delete { color: rgba(220,80,80,0.4); }
+body[data-theme="neumorphism"] .habits-delete:hover { color: #dc5050; }
+body[data-theme="neumorphism"] .habits-add-input { color: #4a5568; border-bottom-color: rgba(163,177,198,0.3); }
+body[data-theme="neumorphism"] .habits-add-input::placeholder { color: rgba(58,74,92,0.3); }
+body[data-theme="neumorphism"] .habits-row:hover { background: rgba(163,177,198,0.08); }
+
+/* Habits — glass */
+body[data-theme="glass"] .habits-name { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+body[data-theme="glass"] .habits-check { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.03); }
+body[data-theme="glass"] .habits-check.clickable { border-color: rgba(255,255,255,0.25); }
+body[data-theme="glass"] .habits-add-input { border-bottom-color: rgba(255,255,255,0.08); }
 </style>
 </head>
 <body>
 <!-- Invisible drag strip — keeps window draggable from top edge in Electron -->
 <div id="titlebar"></div>
-<div id="canvas"></div>
-<div id="fmt-toolbar"></div>
-<div id="ctx-menu"></div>
+<div id="canvas" role="main" aria-label="Card canvas"></div>
+<div id="fmt-toolbar" role="toolbar" aria-label="Text formatting"></div>
+<div id="ctx-menu" role="menu" aria-label="Context menu"></div>
 <div id="empty-state">press <strong style="color:#4a4a58">+</strong> to add a card</div>
-<div id="version-label" style="position:fixed;bottom:8px;left:12px;font-size:10px;color:rgba(255,255,255,0.12);pointer-events:none;user-select:none;z-index:1;letter-spacing:0.03em;">v1.0.0</div>
+<div id="version-label" style="position:fixed;bottom:8px;left:12px;font-size:10px;color:rgba(255,255,255,0.12);pointer-events:none;user-select:none;z-index:1;letter-spacing:0.03em;">v1.1.0</div>
 
 <!-- Expand toggle — orbits to diagonal on open -->
-<button id="toolbar-expand" class="tb-btn" data-tip="More tools"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M10 14L3 21"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/></svg></button>
+<button id="settings-btn" class="tb-btn" data-tip="Settings" aria-label="Settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+<div id="settings-panel"></div>
+<div id="confirm-modal"><div class="confirm-box"><div class="confirm-msg"></div><div class="confirm-actions"></div></div></div>
+<div id="minimize-pill"><span class="pill-icon">F</span><span class="pill-label">Floatboard</span></div>
+<div id="collect-popup">
+  <button class="collect-dir" data-dir="left" title="Align left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 3v18"/><path d="M9 6h10"/><path d="M9 12h7"/><path d="M9 18h10"/></svg></button>
+  <button class="collect-dir" data-dir="right" title="Align right"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 3v18"/><path d="M5 6h10"/><path d="M8 12h7"/><path d="M5 18h10"/></svg></button>
+  <button class="collect-dir" data-dir="top" title="Align top"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 4h18"/><path d="M6 9v10"/><path d="M12 9v7"/><path d="M18 9v10"/></svg></button>
+  <button class="collect-dir" data-dir="bottom" title="Align bottom"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 20h18"/><path d="M6 5v10"/><path d="M12 8v7"/><path d="M18 5v10"/></svg></button>
+</div>
+<button id="toolbar-expand" class="tb-btn" data-tip="More tools" aria-label="More tools" aria-expanded="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6"/><path d="M10 14L3 21"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/></svg></button>
 
 <!-- Tray buttons — bottom row, fan out left from ··· position when open -->
-<button id="kofi-btn" class="tb-btn" data-tip="Support on Ko-fi">
+<button id="kofi-btn" class="tb-btn" data-tip="Support on Ko-fi" aria-label="Support on Ko-fi">
   <svg width="22" height="18" viewBox="0 0 241 194" fill="none" xmlns="http://www.w3.org/2000/svg">
     <mask id="kofi-mask" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="-1" y="0" width="242" height="194">
       <path d="M240.469 0.958984H-0.00585938V193.918H240.469V0.958984Z" fill="white"/>
@@ -634,68 +1702,141 @@ body.snapped-left.no-electron.toolbar-open #collect-btn { right: auto; left: 190
     </g>
   </svg>
 </button>
-<button id="btn-snap" class="tb-btn" data-tip="Snap window">
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+<button id="btn-snap" class="tb-btn" data-tip="Snap window" aria-label="Snap window to side">
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M1 7h12M9 3l4 4-4 4M5 3L1 7l4 4"/>
   </svg>
 </button>
-<button id="undo-btn"    class="tb-btn" data-tip="Undo" disabled>↩</button>
-<button id="collect-btn" class="tb-btn" data-tip="Collect cards">⊞</button>
+<button id="undo-btn"    class="tb-btn" data-tip="Undo" aria-label="Undo last action" disabled>↩</button>
+<button id="collect-btn" class="tb-btn" data-tip="Collect cards" aria-label="Collect and tidy all cards">⊞</button>
 
 <!-- Group B — vertical stack above +, shown in Electron only -->
-<button id="gb-close" class="tb-btn" data-tip="Close">×</button>
-<button id="gb-pin"   class="tb-btn" data-tip="Pin on top">
+<button id="gb-close" class="tb-btn" data-tip="Close" aria-label="Close application">×</button>
+<button id="gb-pin"   class="tb-btn" data-tip="Pin on top" aria-label="Pin window on top">
   <svg width="13" height="14" viewBox="0 0 13 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <path id="gb-pin-head" d="M4 1h5M6.5 1v5L4.5 8h4l-2-2V1"/>
     <line x1="6.5" y1="8" x2="6.5" y2="13"/>
   </svg>
 </button>
-<button id="gb-min" class="tb-btn" data-tip="Minimize window">
-  <svg width="10" height="2" viewBox="0 0 10 2" fill="none"><line x1="0.5" y1="1" x2="9.5" y2="1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+<button id="gb-min" class="tb-btn" data-tip="Minimize window" aria-label="Minimize window">
+  <svg width="10" height="2" viewBox="0 0 10 2" fill="none" aria-hidden="true"><line x1="0.5" y1="1" x2="9.5" y2="1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
 </button>
+<!-- Theme picker removed — themes now in settings panel -->
+<div id="premium-toast" role="alert" aria-live="polite"></div>
 
-<button id="add-btn" title="Add card">
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+<button id="add-btn" title="Add card" aria-label="Add new card" aria-haspopup="true" aria-expanded="false">
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
   </svg>
 </button>
-<div id="picker">
-  <button class="picker-btn" data-type="todo">
-    <span class="picker-icon" style="background:rgba(124,109,250,0.18)">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7c6dfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="1" y="1" width="4" height="4" rx="1"/>
-        <rect x="1" y="9" width="4" height="4" rx="1"/>
-        <line x1="7.5" y1="3" x2="13" y2="3"/>
-        <line x1="7.5" y1="11" x2="13" y2="11"/>
-        <line x1="7.5" y1="7" x2="10" y2="7"/>
-      </svg>
-    </span>
-    <span class="picker-label">Todo list</span>
-    <span class="picker-arrow">›</span>
-  </button>
-  <button class="picker-btn" data-type="text">
-    <span class="picker-icon" style="background:rgba(52,211,153,0.18)">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linecap="round">
-        <line x1="2" y1="3"  x2="12" y2="3"/>
-        <line x1="2" y1="6"  x2="12" y2="6"/>
-        <line x1="2" y1="9"  x2="9"  y2="9"/>
-        <line x1="2" y1="12" x2="10" y2="12"/>
-      </svg>
-    </span>
-    <span class="picker-label">Text note</span>
-    <span class="picker-arrow">›</span>
-  </button>
-  <button class="picker-btn" data-type="image">
-    <span class="picker-icon" style="background:rgba(251,191,36,0.18)">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="1" y="2" width="12" height="10" rx="2"/>
-        <circle cx="4.5" cy="5.5" r="1.2"/>
-        <path d="M1 10l3-3 2 2 2.5-3 3.5 4"/>
-      </svg>
-    </span>
-    <span class="picker-label">Image</span>
-    <span class="picker-arrow">›</span>
-  </button>
+<div id="picker" role="menu" aria-label="Card type picker">
+  <div class="picker-fav-section" style="display:none">
+    <div class="picker-category-label">&#9733; Favorites</div>
+  </div>
+  <div class="picker-category">
+    <div class="picker-category-label">Essentials</div>
+    <button class="picker-btn" data-type="todo" role="menuitem">
+      <span class="picker-icon" style="background:rgba(124,109,250,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7c6dfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="1" width="4" height="4" rx="1"/>
+          <rect x="1" y="9" width="4" height="4" rx="1"/>
+          <line x1="7.5" y1="3" x2="13" y2="3"/>
+          <line x1="7.5" y1="11" x2="13" y2="11"/>
+          <line x1="7.5" y1="7" x2="10" y2="7"/>
+        </svg>
+      </span>
+      <span class="picker-label">Todo list</span>
+    </button>
+    <button class="picker-btn" data-type="text" role="menuitem">
+      <span class="picker-icon" style="background:rgba(52,211,153,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linecap="round">
+          <line x1="2" y1="3"  x2="12" y2="3"/>
+          <line x1="2" y1="6"  x2="12" y2="6"/>
+          <line x1="2" y1="9"  x2="9"  y2="9"/>
+          <line x1="2" y1="12" x2="10" y2="12"/>
+        </svg>
+      </span>
+      <span class="picker-label">Text note</span>
+    </button>
+    <button class="picker-btn" data-type="image" role="menuitem">
+      <span class="picker-icon" style="background:rgba(251,191,36,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="2" width="12" height="10" rx="2"/>
+          <circle cx="4.5" cy="5.5" r="1.2"/>
+          <path d="M1 10l3-3 2 2 2.5-3 3.5 4"/>
+        </svg>
+      </span>
+      <span class="picker-label">Image</span>
+    </button>
+  </div>
+  <div class="picker-divider"></div>
+  <div class="picker-category">
+    <div class="picker-category-label">Time <span class="pro-badge">PRO</span></div>
+    <button class="picker-btn picker-premium-btn" data-type="pomodoro" role="menuitem">
+      <span class="picker-icon" style="background:rgba(244,114,182,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#f472b6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="7" cy="7.5" r="5.5"/>
+          <path d="M7 4.5V7.5l2 1.5"/>
+          <path d="M5.5 2h3"/>
+        </svg>
+      </span>
+      <span class="picker-label">Pomodoro</span>
+    </button>
+    <button class="picker-btn picker-premium-btn" data-type="stopwatch" role="menuitem">
+      <span class="picker-icon" style="background:rgba(6,182,212,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#06b6d4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="7" cy="8" r="5"/>
+          <path d="M7 5.5V8l2 1"/>
+          <line x1="5.5" y1="1.5" x2="8.5" y2="1.5"/>
+          <line x1="7" y1="1.5" x2="7" y2="3"/>
+        </svg>
+      </span>
+      <span class="picker-label">Stopwatch</span>
+    </button>
+    <button class="picker-btn picker-premium-btn" data-type="countdown" role="menuitem">
+      <span class="picker-icon" style="background:rgba(239,68,68,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 1h6M7 1v2"/>
+          <path d="M3.5 5.5l1.5 2M10.5 5.5l-1.5 2"/>
+          <path d="M4 13h6l-1-4H5l-1 4z"/>
+          <line x1="3.5" y1="13" x2="10.5" y2="13"/>
+        </svg>
+      </span>
+      <span class="picker-label">Countdown</span>
+    </button>
+  </div>
+  <div class="picker-divider"></div>
+  <div class="picker-category">
+    <div class="picker-category-label">Tracking <span class="pro-badge">PRO</span></div>
+    <button class="picker-btn picker-premium-btn" data-type="usage" role="menuitem">
+      <span class="picker-icon" style="background:rgba(251,146,60,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#fb923c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 1v4M7 9v4M1 7h4M9 7h4"/>
+          <circle cx="7" cy="7" r="2"/>
+        </svg>
+      </span>
+      <span class="picker-label">Claude usage</span>
+    </button>
+    <button class="picker-btn picker-premium-btn" data-type="schedule" role="menuitem">
+      <span class="picker-icon" style="background:rgba(96,165,250,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#60a5fa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="7" cy="7" r="6"/>
+          <path d="M7 3.5V7l2.5 1.5"/>
+        </svg>
+      </span>
+      <span class="picker-label">Schedule</span>
+    </button>
+    <button class="picker-btn picker-premium-btn" data-type="habits" role="menuitem">
+      <span class="picker-icon" style="background:rgba(16,185,129,0.18)" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#10b981" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 2c0 0-3 2-3 5s1.5 5 3 5 3-2 3-5-3-5-3-5z"/>
+          <path d="M7 6v4"/>
+          <path d="M5.5 8.5l1.5-1 1.5 1"/>
+        </svg>
+      </span>
+      <span class="picker-label">Habit tracker</span>
+    </button>
+  </div>
 </div>
 
 <script>
@@ -725,7 +1866,7 @@ let isResizing       = false;
 // ── STORAGE ───────────────────────────────────────────────────
 let _saveTimer = null;
 function save() {
-  const json = JSON.stringify({ cards, groups });
+  const json = JSON.stringify({ cards, groups, theme: currentTheme });
   // Electron: persist to single file in home dir
   if (window.electronAPI && window.electronAPI.saveData) {
     window.electronAPI.saveData(json);
@@ -747,7 +1888,9 @@ function clampToViewport(x, y, w, h) {
 // ── EMPTY STATE ───────────────────────────────────────────────
 const emptyState = document.getElementById('empty-state');
 function updateEmptyState() {
-  emptyState.style.display = cards.length === 0 ? '' : 'none';
+  const empty = cards.length === 0;
+  emptyState.style.display = empty ? '' : 'none';
+  document.getElementById('add-btn').classList.toggle('pulsing', empty);
 }
 
 // Run on load and on window resize: nudge out-of-bounds cards back in,
@@ -842,6 +1985,7 @@ function _hydrateCards(rawCards) {
 
 function _sanitizeGroups(grps) {
   grps = grps.filter(g => {
+    if (g.locked === undefined) g.locked = false;
     g.memberIds = g.memberIds.filter(id => cards.some(c => c.id === id));
     if (g.memberIds.length < 2) {
       g.memberIds.forEach(id => { const c = cards.find(cc => cc.id === id); if (c) c.groupId = null; });
@@ -854,6 +1998,7 @@ function _sanitizeGroups(grps) {
   });
   return grps;
 }
+let _loadedTheme = null;
 
 async function load() {
   let loaded = false;
@@ -866,6 +2011,7 @@ async function load() {
         const parsed = JSON.parse(result.data);
         cards  = _hydrateCards(parsed.cards || []);
         groups = _sanitizeGroups(parsed.groups || []);
+        if (parsed.theme) _loadedTheme = parsed.theme;
         loaded = true;
       }
     } catch(e) { console.warn('File load failed, falling back to localStorage', e); }
@@ -878,9 +2024,9 @@ async function load() {
       if (raw) {
         cards = _hydrateCards(JSON.parse(raw));
       } else {
-        cards = defaultCards();
+        cards = [];
       }
-    } catch(e) { cards = defaultCards(); }
+    } catch(e) { cards = []; }
 
     try {
       const raw = localStorage.getItem(GROUPS_KEY);
@@ -889,7 +2035,7 @@ async function load() {
     groups = _sanitizeGroups(groups);
   }
 
-  if (cards.length === 0) cards = defaultCards();
+  // New users start with an empty canvas
 }
 
 // ── HISTORY ───────────────────────────────────────────────────
@@ -1165,7 +2311,13 @@ function attachToSnapGraph(data, snapLinks, useSpring = false) {
 let _reflowRaf = null;
 function scheduleReflow(id) {
   if (_reflowRaf) cancelAnimationFrame(_reflowRaf);
-  _reflowRaf = requestAnimationFrame(() => { _reflowRaf = null; cascadeReflow(id); });
+  _reflowRaf = requestAnimationFrame(() => {
+    _reflowRaf = null;
+    cascadeReflow(id);
+    // Also update group frame if this card is in a group
+    const card = cards.find(c => c.id === id);
+    if (card && card.groupId) updateGroupFrame(card.groupId);
+  });
 }
 
 // ── GROUP SYSTEM ──────────────────────────────────────────────
@@ -1270,7 +2422,8 @@ function buildGroupFrame(group) {
   const ungroupBtn = document.createElement('button');
   ungroupBtn.className = 'group-ungroup-btn';
   ungroupBtn.title     = 'Dissolve group';
-  ungroupBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="4.5" height="4.5" rx="1"/><rect x="6.5" y="6.5" width="4.5" height="4.5" rx="1"/></svg>`;
+  ungroupBtn.setAttribute('aria-label', 'Dissolve group');
+  ungroupBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="1" width="4.5" height="4.5" rx="1"/><rect x="6.5" y="6.5" width="4.5" height="4.5" rx="1"/></svg>`;
   ungroupBtn.addEventListener('mousedown', e => e.stopPropagation());
   ungroupBtn.addEventListener('click', e => {
     e.stopPropagation();
@@ -1419,6 +2572,8 @@ function createGroup(cardA, cardB) {
   // Auto-arrange: if cards overlap, reposition cardA so they don't collide
   const elA = document.querySelector(`.card[data-id="${cardA.id}"]`);
   const elB = document.querySelector(`.card[data-id="${cardB.id}"]`);
+  if (elA) elA.classList.add('in-group');
+  if (elB) elB.classList.add('in-group');
   if (elA && elB) {
     const wA = elA.offsetWidth, hA = elA.offsetHeight;
     const wB = elB.offsetWidth, hB = elB.offsetHeight;
@@ -1455,6 +2610,8 @@ function addToGroup(groupId, cardData) {
   if (cardData.groupId && cardData.groupId !== groupId) leaveGroup(cardData, false);
   g.memberIds.push(cardData.id);
   cardData.groupId = groupId;
+  const el = document.querySelector(`.card[data-id="${cardData.id}"]`);
+  if (el) el.classList.add('in-group');
   updateGroupFrame(groupId);
   save();
 }
@@ -1465,6 +2622,8 @@ function leaveGroup(cardData, doSave = true) {
   if (!g) { cardData.groupId = null; return; }
   g.memberIds = g.memberIds.filter(id => id !== cardData.id);
   cardData.groupId = null;
+  const lel = document.querySelector(`.card[data-id="${cardData.id}"]`);
+  if (lel) lel.classList.remove('in-group');
   if (g.memberIds.length < 2) {
     dissolveGroup(g.id);
   } else {
@@ -1479,6 +2638,8 @@ function dissolveGroup(groupId) {
   g.memberIds.forEach(id => {
     const c = cards.find(cc => cc.id === id);
     if (c) c.groupId = null;
+    const del = document.querySelector(`.card[data-id="${id}"]`);
+    if (del) del.classList.remove('in-group');
   });
   groups = groups.filter(gg => gg.id !== groupId);
   removeGroupFrameEl(groupId);
@@ -1489,6 +2650,7 @@ function makeGroupDraggable(hdr, group) {
   hdr.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
     if (e.target.closest('[contenteditable="true"], button')) return;
+    if (group.locked) return; // locked groups can't be dragged
     e.preventDefault(); e.stopPropagation();
 
     const startX = e.clientX, startY = e.clientY;
@@ -1562,10 +2724,12 @@ function buildCard(data) {
   if (data.locked === undefined) data.locked = false;
 
   const el = document.createElement('div');
-  el.className = 'card' + (data.minimized ? ' minimized' : '') + (data.locked ? ' locked' : '');
+  el.className = 'card' + (data.minimized ? ' minimized' : '') + (data.locked ? ' locked' : '') + (data.groupId ? ' in-group' : '');
   el.dataset.id = data.id;
+  el.setAttribute('role', 'article');
+  el.setAttribute('aria-label', (data.title || 'untitled') + ' ' + data.type + ' card');
   const cardW = data.cardWidth || 260;
-  el.style.cssText = `left:${data.x}px;top:${data.y}px;z-index:${data.z};--accent:${data.accent};width:${cardW}px`;
+  el.style.cssText = `left:${data.x}px;top:${data.y}px;z-index:${data.z};--accent:${data.accent};--accent-rgb:${hexToRgbStr(data.accent)};--block-accent:${data.accent};width:${cardW}px`;
 
   const accent = document.createElement('div');
   accent.className = 'card-accent';
@@ -1602,7 +2766,10 @@ function buildCard(data) {
   // Press and hold 2 s to unlock: a conic-gradient ring animates as progress.
   const lockIcon = document.createElement('span');
   lockIcon.className = 'lock-icon';
-  lockIcon.innerHTML = `<svg width="11" height="12" viewBox="0 0 11 12" fill="none" stroke="white" style="stroke:white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="5" width="8" height="6.5" rx="1.5" fill="none"/><path d="M3 5V3.5a2.5 2.5 0 0 1 5 0V5"/></svg>`;
+  lockIcon.innerHTML = `<svg width="11" height="12" viewBox="0 0 11 12" fill="none" stroke="white" style="stroke:white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="5" width="8" height="6.5" rx="1.5" fill="none"/><path d="M3 5V3.5a2.5 2.5 0 0 1 5 0V5"/></svg>`;
+  lockIcon.setAttribute('aria-label', 'Card locked — hold to unlock');
+  lockIcon.setAttribute('role', 'button');
+  lockIcon.tabIndex = data.locked ? 0 : -1;
   lockIcon.style.display = data.locked ? '' : 'none';
 
   lockIcon.addEventListener('mousedown', e => {
@@ -1662,15 +2829,35 @@ function buildCard(data) {
 
   const minBtn = document.createElement('button');
   minBtn.className = 'card-btn minimize-btn';
-  minBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 7.5l4-3 4 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  minBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 7.5l4-3 4 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   minBtn.title = data.minimized ? 'Expand' : 'Minimize';
+  minBtn.setAttribute('aria-label', data.minimized ? 'Expand card' : 'Minimize card');
+  minBtn.setAttribute('aria-expanded', !data.minimized);
   minBtn.addEventListener('mousedown', e => e.stopPropagation());
   minBtn.addEventListener('click', e => {
     e.stopPropagation();
     pushHistory();
     data.minimized = !data.minimized;
     el.classList.toggle('minimized', data.minimized);
+    // Clear/restore inline body height so CSS can take over
+    const bodyEl = el.querySelector('.card-body');
+    if (bodyEl) {
+      if (data.minimized) {
+        bodyEl.style.height = '0';
+        bodyEl.style.flex = '0';
+      } else {
+        if (data.bodyHeight) {
+          bodyEl.style.height = data.bodyHeight + 'px';
+          bodyEl.style.flex = 'none';
+        } else {
+          bodyEl.style.height = '';
+          bodyEl.style.flex = '';
+        }
+      }
+    }
     minBtn.title = data.minimized ? 'Expand' : 'Minimize';
+    minBtn.setAttribute('aria-label', data.minimized ? 'Expand card' : 'Minimize card');
+    minBtn.setAttribute('aria-expanded', !data.minimized);
     save();
     requestAnimationFrame(() => {
       cascadeReflow(data.id, new Set(), true);
@@ -1681,6 +2868,7 @@ function buildCard(data) {
   const delBtn = document.createElement('button');
   delBtn.className = 'card-btn delete-btn';
   delBtn.title     = 'Delete card';
+  delBtn.setAttribute('aria-label', 'Delete card');
   delBtn.innerHTML = '×'; delBtn.style.fontSize = '17px';
   delBtn.addEventListener('mousedown', e => e.stopPropagation());
   delBtn.addEventListener('click', e => {
@@ -1697,16 +2885,30 @@ function buildCard(data) {
   // ── Body ────────────────────────────────────
   const body = document.createElement('div');
   body.className = 'card-body';
-  if (data.bodyHeight && data.type !== 'image') {
+  if (data.minimized) {
+    body.style.flex = '0';
+    body.style.height = '0';
+  } else if (data.bodyHeight && data.type !== 'image') {
     body.style.flex   = 'none';
     body.style.height = data.bodyHeight + 'px';
   }
 
-  if      (data.type === 'todo')  buildTodoBody(body, data);
-  else if (data.type === 'text')  buildTextBody(body, data);
-  else if (data.type === 'image') buildImageBody(body, data);
+  if      (data.type === 'todo')      buildTodoBody(body, data);
+  else if (data.type === 'text')      buildTextBody(body, data);
+  else if (data.type === 'image')     buildImageBody(body, data);
+  else if (data.type === 'usage')     buildUsageBody(body, data);
+  else if (data.type === 'schedule')  buildScheduleBody(body, data);
+  else if (data.type === 'pomodoro')  buildPomodoroBody(body, data);
+  else if (data.type === 'stopwatch') buildStopwatchBody(body, data);
+  else if (data.type === 'countdown') buildCountdownBody(body, data);
+  else if (data.type === 'habits')    buildHabitsBody(body, data);
 
   el.appendChild(body);
+
+  // Apply persisted opacity (premium feature)
+  if (data.opacity !== undefined && data.opacity !== null && data.opacity !== 1) {
+    el.style.opacity = data.opacity;
+  }
 
   // ── Resize handles ───────────────────────────
   if (data.type === 'image') {
@@ -1763,7 +2965,9 @@ function deleteCard(data, el) {
   if (data._springRaf) { cancelAnimationFrame(data._springRaf); data._springRaf = null; }
   data.snapParent = null; data.snapChildren = [];
   cards = cards.filter(c => c.id !== data.id);
-  el.remove();
+  // Animate out then remove
+  el.classList.add('deleting');
+  el.addEventListener('animationend', () => el.remove(), { once: true });
   if (parent) cascadeReflow(parent.id, new Set(), true);
   updateEmptyState();
   save();
@@ -1774,6 +2978,8 @@ function buildTodoBody(body, data) {
   if (!data.items) data.items = [];
   const list = document.createElement('ul');
   list.className = 'todo-list';
+  list.setAttribute('role', 'list');
+  list.setAttribute('aria-label', 'Todo items');
   let dragSrcIdx = null;
 
   function rebuildList() {
@@ -1813,13 +3019,25 @@ function buildTodoBody(body, data) {
 
     const cb = document.createElement('div');
     cb.className = 'todo-checkbox' + (item.done ? ' checked' : '');
+    cb.setAttribute('role', 'checkbox');
+    cb.setAttribute('aria-checked', item.done);
+    cb.setAttribute('aria-label', 'Mark task ' + (item.done ? 'incomplete' : 'complete'));
+    cb.tabIndex = 0;
     cb.addEventListener('mousedown', e => e.stopPropagation());
+    cb.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cb.click(); } });
     cb.addEventListener('click', e => {
       e.stopPropagation();
       pushHistory(); touchLastEdited(data.id);
       item.done = !item.done;
       li.classList.toggle('done', item.done);
       cb.classList.toggle('checked', item.done);
+      cb.setAttribute('aria-checked', item.done);
+      cb.setAttribute('aria-label', 'Mark task ' + (item.done ? 'incomplete' : 'complete'));
+      // Bounce animation
+      cb.classList.remove('checking');
+      void cb.offsetWidth; // force reflow to restart animation
+      cb.classList.add('checking');
+      cb.addEventListener('animationend', () => cb.classList.remove('checking'), { once: true });
       save();
     });
 
@@ -1844,6 +3062,7 @@ function buildTodoBody(body, data) {
 
     const del = document.createElement('button');
     del.className = 'todo-delete'; del.innerHTML = '×';
+    del.setAttribute('aria-label', 'Delete todo item');
     del.addEventListener('mousedown', e => e.stopPropagation());
     del.addEventListener('click', e => {
       e.stopPropagation();
@@ -1865,6 +3084,7 @@ function buildTodoBody(body, data) {
   const addInput = document.createElement('input');
   addInput.className   = 'todo-add-input';
   addInput.type        = 'text';
+  addInput.setAttribute('aria-label', 'Add new todo item');
   addInput.placeholder = 'Add item…';
   addInput.addEventListener('mousedown', e => e.stopPropagation());
   addInput.addEventListener('focus', () => addRow.style.opacity = '1');
@@ -1888,6 +3108,9 @@ function buildTextBody(body, data) {
   content.className       = 'text-content';
   content.contentEditable = 'true'; content.spellcheck = false;
   content.dataset.placeholder = 'Start typing…';
+  content.setAttribute('role', 'textbox');
+  content.setAttribute('aria-multiline', 'true');
+  content.setAttribute('aria-label', 'Note text content');
   if (data.content) content.innerHTML = data.content;
   content.addEventListener('mousedown', e => e.stopPropagation());
 
@@ -1910,8 +3133,11 @@ function buildTextBody(body, data) {
 function buildImageBody(body, data) {
   const zone      = document.createElement('div');
   zone.className  = 'image-zone';
+  zone.setAttribute('role', 'button');
+  zone.setAttribute('aria-label', 'Click to upload image');
   const fileInput = document.createElement('input');
   fileInput.type = 'file'; fileInput.accept = 'image/*';
+  fileInput.setAttribute('aria-label', 'Upload image file');
   fileInput.addEventListener('mousedown', e => e.stopPropagation());
 
   function renderZone() {
@@ -1965,6 +3191,1111 @@ function buildImageBody(body, data) {
   zone.addEventListener('click', e => { if (e.target !== fileInput) fileInput.click(); });
   renderZone();
   body.appendChild(zone);
+}
+
+// ── SCHEDULE CARD BODY ───────────────────────────────────────
+
+function normalizeTime(raw) {
+  if (!raw) return '';
+  let s = raw.trim().toLowerCase();
+  const pm = s.includes('pm');
+  const am = s.includes('am');
+  s = s.replace(/\s*(am|pm)/i, '');
+  let [h, m] = s.split(':').map(Number);
+  if (isNaN(h)) return '';
+  if (isNaN(m)) m = 0;
+  if (pm && h < 12) h += 12;
+  if (am && h === 12) h = 0;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+// Detect if a line is a section header (MORNING, AFTERNOON, etc.)
+function isSectionHeader(line) {
+  const clean = line.trim();
+  if (!clean || clean.length > 40) return false;
+  // All-caps words, optionally with —, -, :, or emoji
+  if (/^[A-Z][A-Z\s\-–—:&]+$/.test(clean)) return true;
+  // Mixed case section labels like "Mid-Morning — DGO"
+  if (/^[A-Za-z][\w\s\-–—:&]+$/.test(clean) && !/\d/.test(clean) && clean.length < 30) return true;
+  return false;
+}
+
+// Parse a line into a time + task, or return null
+function parseScheduleLine(line) {
+  const clean = line.trim();
+  if (!clean) return null;
+
+  // Check for section header first
+  if (isSectionHeader(clean)) {
+    return { id: uid(), type: 'section', text: clean };
+  }
+
+  // Remove leading bullets/numbers: "- ", "• ", "1. ", "1) "
+  const stripped = clean.replace(/^[-•*]\s+/, '').replace(/^\d+[.)]\s+/, '');
+
+  // Try to match a time at the start
+  // Formats: 9:00, 09:00, 9am, 9:00am, 9:00 AM
+  const timeMatch = stripped.match(/^(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+  if (!timeMatch) return null;
+
+  const timeStr = timeMatch[1];
+  const rest = stripped.slice(timeMatch[0].length);
+  // Strip any separators between time and task text
+  const text = rest.replace(/^[\s\-–—:,]+/, '').trim();
+  if (!text) return null;
+
+  return {
+    id: uid(),
+    type: 'task',
+    time: normalizeTime(timeStr),
+    text
+  };
+}
+
+// Parse a full schedule text block into items array
+function parseScheduleText(text) {
+  // Split on newlines (handle \r\n, \n, \r, and Unicode line separators)
+  const lines = text.split(/\r?\n|\r|\u2028|\u2029/).map(l => l.trim()).filter(Boolean);
+  const items = [];
+  lines.forEach(line => {
+    const parsed = parseScheduleLine(line);
+    if (parsed) items.push(parsed);
+  });
+  return items;
+}
+
+// ── TIMELINE HELPERS ─────────────────────────────────────────
+
+function timeToMinutes(t) {
+  if (!t) return -1;
+  const [h, m] = t.split(':').map(Number);
+  return isNaN(h) ? -1 : h * 60 + (m || 0);
+}
+
+function minutesToTime(mins) {
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function computeVisibleRanges(items, pxPerMin) {
+  const intervals = items
+    .filter(i => i.time && timeToMinutes(i.time) >= 0)
+    .map(i => ({ s: timeToMinutes(i.time), e: timeToMinutes(i.time) + (i.duration || 60) }))
+    .sort((a, b) => a.s - b.s);
+
+  if (intervals.length === 0) return { segments: [], gaps: [], totalHeight: 0 };
+
+  // Merge into clusters (gap ≤ 120min = same cluster)
+  const clusters = [{ s: intervals[0].s, e: intervals[0].e }];
+  for (let i = 1; i < intervals.length; i++) {
+    const last = clusters[clusters.length - 1];
+    if (intervals[i].s - last.e <= 120) {
+      last.e = Math.max(last.e, intervals[i].e);
+    } else {
+      clusters.push({ s: intervals[i].s, e: intervals[i].e });
+    }
+  }
+
+  // Pad ±60min, clamp [0, 1440], snap to whole hour
+  clusters.forEach(c => {
+    c.s = Math.max(0, Math.floor((c.s - 60) / 60) * 60);
+    c.e = Math.min(1440, Math.ceil((c.e + 60) / 60) * 60);
+  });
+
+  // Build segments with y-offsets
+  const GAP_H = 20;
+  const segments = [];
+  let yOffset = 0;
+  clusters.forEach((c, i) => {
+    const height = (c.e - c.s) * pxPerMin;
+    segments.push({ startMin: c.s, endMin: c.e, yOffset, height });
+    yOffset += height;
+    if (i < clusters.length - 1) yOffset += GAP_H;
+  });
+
+  return { segments, gaps: clusters.length > 1, totalHeight: yOffset };
+}
+
+function minToY(min, segments) {
+  for (const seg of segments) {
+    if (min >= seg.startMin && min <= seg.endMin) {
+      return seg.yOffset + (min - seg.startMin) * (seg.height / (seg.endMin - seg.startMin));
+    }
+  }
+  // Before first or after last — clamp
+  if (segments.length > 0) {
+    if (min < segments[0].startMin) return 0;
+    const last = segments[segments.length - 1];
+    return last.yOffset + last.height;
+  }
+  return 0;
+}
+
+// Determine section label for a time string
+function getTimeSection(timeStr) {
+  if (!timeStr) return null;
+  const h = parseInt(timeStr.split(':')[0], 10);
+  if (isNaN(h)) return null;
+  if (h < 12) return 'MORNING';
+  if (h < 18) return 'AFTERNOON';
+  return 'EVENING';
+}
+
+function formatTime(time24, use12h) {
+  if (!time24 || !use12h) return time24 || '';
+  const [h, m] = time24.split(':').map(Number);
+  if (isNaN(h)) return time24;
+  const period = h >= 12 ? 'pm' : 'am';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return h12 + ':' + String(m).padStart(2, '0') + period;
+}
+
+function buildScheduleBody(body, data) {
+  if (!data.items) data.items = [];
+  if (data.use12h === undefined) data.use12h = false;
+  if (!data.pxPerHour) data.pxPerHour = 60;
+  // Migrate: add duration, filter out section items
+  data.items = data.items.filter(i => i.type !== 'section');
+  data.items.forEach(item => {
+    if (!item.type) item.type = 'task';
+    if (item.done === undefined) item.done = false;
+    if (!item.duration) item.duration = 60;
+  });
+
+  body.classList.add('tl-body');
+  const PX_PER_MIN = data.pxPerHour / 60;
+  const SNAP = 15; // snap to 15-minute intervals
+
+  function celebrate(el) {
+    const rect = el.getBoundingClientRect();
+    const burst = document.createElement('div');
+    burst.className = 'schedule-celebrate';
+    burst.style.left = (rect.left + rect.width / 2 - 10) + 'px';
+    burst.style.top  = (rect.top + rect.height / 2 - 10) + 'px';
+    document.body.appendChild(burst);
+    setTimeout(() => burst.remove(), 500);
+  }
+
+  // ── TOOLBAR (add input + format toggle) ──
+  const toolbar = document.createElement('div');
+  toolbar.className = 'tl-toolbar';
+  const addInput = document.createElement('input');
+  addInput.className = 'schedule-add-input';
+  addInput.type = 'text';
+  addInput.placeholder = 'Paste schedule or type "9:00 task"…';
+  addInput.setAttribute('aria-label', 'Add schedule item');
+  addInput.addEventListener('mousedown', e => e.stopPropagation());
+  const fmtBtn = document.createElement('button');
+  fmtBtn.className = 'schedule-fmt-toggle';
+  fmtBtn.textContent = data.use12h ? '12h' : '24h';
+  fmtBtn.addEventListener('mousedown', e => e.stopPropagation());
+  fmtBtn.addEventListener('click', () => {
+    data.use12h = !data.use12h;
+    fmtBtn.textContent = data.use12h ? '12h' : '24h';
+    save(); renderTimeline();
+  });
+  toolbar.appendChild(addInput);
+  toolbar.appendChild(fmtBtn);
+
+  // ── CONTAINER ──
+  const container = document.createElement('div');
+  container.className = 'tl-container';
+  const ghostLine = document.createElement('div');
+  ghostLine.className = 'tl-drag-ghost';
+  container.appendChild(ghostLine);
+
+  // ── COMPLETED ──
+  const completedToggle = document.createElement('div');
+  completedToggle.className = 'schedule-completed-toggle';
+  completedToggle.innerHTML = '<svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><path d="M2 0l4 4-4 4z"/></svg> <span>Completed <span class="sct-count">0</span></span>';
+  completedToggle.style.display = 'none';
+  completedToggle.addEventListener('click', () => {
+    completedToggle.classList.toggle('open');
+    completedDiv.classList.toggle('open');
+  });
+  const completedDiv = document.createElement('div');
+  completedDiv.className = 'schedule-completed-list';
+
+  // ── RENDER TIMELINE ──
+  function renderTimeline() {
+    // Clear previous
+    container.innerHTML = '';
+    container.appendChild(ghostLine);
+    completedDiv.innerHTML = '';
+
+    const active = data.items.filter(i => !i.done && timeToMinutes(i.time) >= 0);
+    const noTime = data.items.filter(i => !i.done && timeToMinutes(i.time) < 0);
+    const completed = data.items.filter(i => i.done);
+
+    if (active.length === 0 && noTime.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'tl-empty';
+      empty.textContent = 'Paste a schedule or add a task';
+      container.appendChild(empty);
+    }
+
+    if (active.length > 0) {
+      const ranges = computeVisibleRanges(active, PX_PER_MIN);
+      container.style.height = ranges.totalHeight + 'px';
+
+      // Gutter + gridlines
+      const gutter = document.createElement('div');
+      gutter.className = 'tl-gutter';
+      const track = document.createElement('div');
+      track.className = 'tl-track';
+
+      ranges.segments.forEach((seg, segIdx) => {
+        // Hour labels and gridlines for this segment
+        const firstHour = Math.ceil(seg.startMin / 60);
+        const lastHour  = Math.floor(seg.endMin / 60);
+        for (let h = firstHour; h <= lastHour; h++) {
+          const y = seg.yOffset + (h * 60 - seg.startMin) * PX_PER_MIN;
+          // Hour label
+          const label = document.createElement('div');
+          label.className = 'tl-hour-label';
+          label.style.top = y + 'px';
+          label.textContent = formatTime(String(h).padStart(2, '0') + ':00', data.use12h);
+          gutter.appendChild(label);
+          // Gridline
+          const line = document.createElement('div');
+          line.className = 'tl-hour-line';
+          line.style.top = y + 'px';
+          container.appendChild(line);
+        }
+
+        // Gap divider after segment (except last)
+        if (segIdx < ranges.segments.length - 1) {
+          const gap = document.createElement('div');
+          gap.className = 'tl-gap';
+          gap.style.top = (seg.yOffset + seg.height) + 'px';
+          const dots = document.createElement('span');
+          dots.className = 'tl-gap-dots';
+          dots.textContent = '···';
+          gap.appendChild(dots);
+          container.appendChild(gap);
+        }
+      });
+
+      container.appendChild(gutter);
+      container.appendChild(track);
+
+      // Task blocks
+      active.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+      active.forEach(item => {
+        const startMin = timeToMinutes(item.time);
+        const y = minToY(startMin, ranges.segments);
+        const h = (item.duration || 60) * PX_PER_MIN;
+
+        const block = document.createElement('div');
+        block.className = 'tl-block' + (item.done ? ' tl-done' : '');
+        block.style.top    = y + 'px';
+        block.style.height = Math.max(20, h) + 'px';
+
+        // Time label
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'tl-block-time';
+        const endTime = minutesToTime(startMin + (item.duration || 60));
+        timeLabel.textContent = formatTime(item.time, data.use12h) + ' – ' + formatTime(endTime, data.use12h);
+
+        // Text
+        const txt = document.createElement('div');
+        txt.className = 'tl-block-text';
+        txt.contentEditable = 'true';
+        txt.spellcheck = false;
+        txt.textContent = item.text || '';
+        let txtTimer;
+        txt.addEventListener('mousedown', e => e.stopPropagation());
+        txt.addEventListener('input', () => {
+          clearTimeout(txtTimer);
+          txtTimer = setTimeout(() => pushHistory(), 1500);
+          touchLastEdited(data.id);
+          item.text = txt.textContent;
+          scheduleSave();
+        });
+
+        // Checkbox
+        const cb = document.createElement('div');
+        cb.className = 'schedule-check' + (item.done ? ' checked' : '');
+        cb.addEventListener('mousedown', e => e.stopPropagation());
+        cb.addEventListener('click', e => {
+          e.stopPropagation();
+          pushHistory(); item.done = !item.done;
+          if (item.done) celebrate(cb);
+          save(); renderTimeline();
+        });
+
+        // Delete
+        const del = document.createElement('button');
+        del.className = 'schedule-delete';
+        del.innerHTML = '×';
+        del.addEventListener('mousedown', e => e.stopPropagation());
+        del.addEventListener('click', e => {
+          e.stopPropagation(); pushHistory();
+          data.items.splice(data.items.indexOf(item), 1);
+          save(); renderTimeline();
+        });
+
+        // Resize handle
+        const resizeH = document.createElement('div');
+        resizeH.className = 'tl-block-resize';
+        resizeH.addEventListener('mousedown', e => {
+          e.preventDefault(); e.stopPropagation();
+          const startY = e.clientY, startDur = item.duration || 60;
+          function onMove(ev) {
+            const deltaPx = ev.clientY - startY;
+            const deltaMins = Math.round(deltaPx / PX_PER_MIN / SNAP) * SNAP;
+            const newDur = Math.max(15, Math.min(480, startDur + deltaMins));
+            item.duration = newDur;
+            block.style.height = Math.max(20, newDur * PX_PER_MIN) + 'px';
+            const newEnd = minutesToTime(startMin + newDur);
+            timeLabel.textContent = formatTime(item.time, data.use12h) + ' – ' + formatTime(newEnd, data.use12h);
+          }
+          function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            pushHistory(); save(); renderTimeline();
+          }
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+
+        // Drag to reschedule
+        block.addEventListener('mousedown', e => {
+          if (e.target.closest('.tl-block-text, .schedule-check, .schedule-delete, .tl-block-resize')) return;
+          e.preventDefault(); e.stopPropagation();
+          block.classList.add('tl-dragging');
+          ghostLine.style.display = 'block';
+          ghostLine.style.background = data.accent;
+          const startY = e.clientY, origMin = startMin;
+
+          function onMove(ev) {
+            const deltaPx = ev.clientY - startY;
+            const deltaMins = Math.round(deltaPx / PX_PER_MIN / SNAP) * SNAP;
+            const newMin = Math.max(0, Math.min(1380, origMin + deltaMins));
+            const newY = minToY(newMin, ranges.segments);
+            block.style.top = newY + 'px';
+            ghostLine.style.top = newY + 'px';
+            ghostLine._snapMin = newMin;
+          }
+          function onUp() {
+            block.classList.remove('tl-dragging');
+            ghostLine.style.display = 'none';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            if (ghostLine._snapMin !== undefined) {
+              item.time = minutesToTime(ghostLine._snapMin);
+              delete ghostLine._snapMin;
+            }
+            pushHistory(); save(); renderTimeline();
+          }
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+
+        block.appendChild(timeLabel);
+        block.appendChild(txt);
+        block.appendChild(cb);
+        block.appendChild(del);
+        block.appendChild(resizeH);
+        track.appendChild(block);
+      });
+    }
+
+    // Completed accordion
+    if (completed.length > 0) {
+      completedToggle.style.display = '';
+      completedToggle.querySelector('.sct-count').textContent = completed.length;
+      completed.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'schedule-completed-item';
+        const cb = document.createElement('div');
+        cb.className = 'schedule-check checked';
+        cb.style.cssText = 'width:12px;height:12px;border-radius:3px;cursor:pointer;flex-shrink:0';
+        cb.addEventListener('click', () => {
+          pushHistory(); item.done = false; save(); renderTimeline();
+        });
+        const label = document.createElement('span');
+        label.textContent = (item.time ? formatTime(item.time, data.use12h) + ' ' : '') + (item.text || '');
+        row.appendChild(cb); row.appendChild(label);
+        completedDiv.appendChild(row);
+      });
+    } else {
+      completedToggle.style.display = 'none';
+      completedDiv.classList.remove('open');
+      completedToggle.classList.remove('open');
+    }
+  }
+
+  // ── ADD INPUT ──
+  addInput.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const val = addInput.value.trim();
+    if (!val) return;
+    pushHistory(); touchLastEdited(data.id);
+    const parsed = parseScheduleLine(val);
+    if (parsed && parsed.type === 'task') {
+      parsed.done = false; parsed.duration = parsed.duration || 60;
+      data.items.push(parsed);
+    } else {
+      // Auto-assign current time rounded to next 15min
+      const now = new Date();
+      const mins = Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15;
+      data.items.push({ id: uid(), type: 'task', time: minutesToTime(mins), duration: 60, done: false, text: val });
+    }
+    addInput.value = ''; save(); renderTimeline();
+  });
+
+  // ── PASTE ──
+  addInput.addEventListener('paste', e => {
+    let text = '';
+    try {
+      const cd = e.clipboardData || window.clipboardData;
+      text = cd.getData('text/plain') || cd.getData('Text') || cd.getData('text') || '';
+    } catch(_) {}
+    if (!text || !text.includes('\n')) return;
+    e.preventDefault();
+    const parsed = parseScheduleText(text).filter(i => i.type === 'task');
+    if (parsed.length === 0) return;
+    // Infer durations from gaps
+    parsed.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+    for (let i = 0; i < parsed.length - 1; i++) {
+      const gap = timeToMinutes(parsed[i + 1].time) - timeToMinutes(parsed[i].time);
+      parsed[i].duration = (gap > 0 && gap <= 180) ? gap : 60;
+    }
+    if (parsed.length > 0) parsed[parsed.length - 1].duration = 60;
+    parsed.forEach(p => { p.done = false; });
+    pushHistory(); touchLastEdited(data.id);
+    parsed.forEach(p => data.items.push(p));
+    addInput.value = ''; save(); renderTimeline();
+  });
+
+  renderTimeline();
+
+  body.appendChild(toolbar);
+  body.appendChild(container);
+  body.appendChild(completedToggle);
+  body.appendChild(completedDiv);
+}
+
+// ── STOPWATCH CARD BODY ─────────────────────────────────────
+function buildStopwatchBody(body, data) {
+  if (!data.laps) data.laps = [];
+  body.classList.add('stopwatch-body');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'stopwatch-wrap';
+
+  // Display
+  const display = document.createElement('div');
+  display.className = 'stopwatch-display';
+  display.innerHTML = '00:00<span class="stopwatch-ms">.00</span>';
+
+  // Controls
+  const controls = document.createElement('div');
+  controls.className = 'stopwatch-controls';
+
+  const startBtn = document.createElement('button');
+  startBtn.className = 'stopwatch-btn';
+  startBtn.textContent = 'Start';
+
+  const lapBtn = document.createElement('button');
+  lapBtn.className = 'stopwatch-btn';
+  lapBtn.textContent = 'Lap';
+  lapBtn.disabled = true;
+  lapBtn.style.opacity = '0.4';
+
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'stopwatch-btn';
+  resetBtn.textContent = 'Reset';
+
+  controls.appendChild(startBtn);
+  controls.appendChild(lapBtn);
+  controls.appendChild(resetBtn);
+
+  // Laps list
+  const lapList = document.createElement('div');
+  lapList.className = 'stopwatch-laps';
+
+  wrap.appendChild(display);
+  wrap.appendChild(controls);
+  wrap.appendChild(lapList);
+  body.appendChild(wrap);
+
+  let running = false;
+  let elapsed = 0;
+  let startTime = 0;
+  let rafId = null;
+
+  function fmtTime(ms) {
+    const totalSec = Math.floor(ms / 1000);
+    const min = String(Math.floor(totalSec / 60)).padStart(2, '0');
+    const sec = String(totalSec % 60).padStart(2, '0');
+    const cs = String(Math.floor((ms % 1000) / 10)).padStart(2, '0');
+    return { min, sec, cs };
+  }
+
+  function updateDisplay() {
+    const now = running ? elapsed + (performance.now() - startTime) : elapsed;
+    const t = fmtTime(now);
+    display.innerHTML = `${t.min}:${t.sec}<span class="stopwatch-ms">.${t.cs}</span>`;
+    if (running) rafId = requestAnimationFrame(updateDisplay);
+  }
+
+  function renderLaps() {
+    lapList.innerHTML = '';
+    for (let i = data.laps.length - 1; i >= 0; i--) {
+      const lap = document.createElement('div');
+      lap.className = 'stopwatch-lap';
+      const diff = i > 0 ? data.laps[i] - data.laps[i - 1] : data.laps[i];
+      const t = fmtTime(data.laps[i]);
+      const d = fmtTime(diff);
+      lap.innerHTML = `<span class="stopwatch-lap-num">#${i + 1}</span><span class="stopwatch-lap-time">${t.min}:${t.sec}.${t.cs}</span><span class="stopwatch-lap-diff">+${d.min}:${d.sec}.${d.cs}</span>`;
+      lapList.appendChild(lap);
+    }
+  }
+
+  startBtn.addEventListener('click', () => {
+    if (!running) {
+      running = true;
+      startTime = performance.now();
+      startBtn.textContent = 'Stop';
+      startBtn.classList.add('active');
+      lapBtn.disabled = false;
+      lapBtn.style.opacity = '1';
+      updateDisplay();
+    } else {
+      running = false;
+      elapsed += performance.now() - startTime;
+      if (rafId) cancelAnimationFrame(rafId);
+      startBtn.textContent = 'Start';
+      startBtn.classList.remove('active');
+      lapBtn.disabled = true;
+      lapBtn.style.opacity = '0.4';
+      updateDisplay();
+    }
+  });
+
+  lapBtn.addEventListener('click', () => {
+    if (!running) return;
+    const now = elapsed + (performance.now() - startTime);
+    data.laps.push(Math.round(now));
+    save();
+    renderLaps();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    running = false;
+    elapsed = 0;
+    if (rafId) cancelAnimationFrame(rafId);
+    data.laps = [];
+    save();
+    startBtn.textContent = 'Start';
+    startBtn.classList.remove('active');
+    lapBtn.disabled = true;
+    lapBtn.style.opacity = '0.4';
+    display.innerHTML = '00:00<span class="stopwatch-ms">.00</span>';
+    lapList.innerHTML = '';
+  });
+
+  renderLaps();
+}
+
+// ── COUNTDOWN CARD BODY ─────────────────────────────────────
+function buildCountdownBody(body, data) {
+  if (!data.createdDate) data.createdDate = new Date().toISOString();
+  if (!data.countdownLabel) data.countdownLabel = 'countdown';
+  body.classList.add('countdown-body');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'countdown-wrap';
+
+  // Label input
+  const labelInput = document.createElement('input');
+  labelInput.className = 'countdown-label-input';
+  labelInput.type = 'text';
+  labelInput.value = data.countdownLabel;
+  labelInput.placeholder = 'event name';
+  labelInput.addEventListener('input', () => {
+    data.countdownLabel = labelInput.value;
+    save();
+  });
+  labelInput.addEventListener('keydown', e => e.stopPropagation());
+
+  // Date input
+  const dateInput = document.createElement('input');
+  dateInput.className = 'countdown-date-input';
+  dateInput.type = 'date';
+  if (data.targetDate) dateInput.value = data.targetDate;
+
+  // Display
+  const displayEl = document.createElement('div');
+  displayEl.className = 'countdown-display';
+  displayEl.textContent = 'Set a date';
+
+  const subDisplay = document.createElement('div');
+  subDisplay.className = 'countdown-display-small';
+
+  // Progress bar
+  const progressWrap = document.createElement('div');
+  progressWrap.className = 'countdown-progress';
+  const progressFill = document.createElement('div');
+  progressFill.className = 'countdown-progress-fill';
+  progressWrap.appendChild(progressFill);
+
+  wrap.appendChild(labelInput);
+  wrap.appendChild(dateInput);
+  wrap.appendChild(displayEl);
+  wrap.appendChild(subDisplay);
+  wrap.appendChild(progressWrap);
+  body.appendChild(wrap);
+
+  let intervalId = null;
+
+  function updateCountdown() {
+    if (!data.targetDate) {
+      displayEl.textContent = 'Set a date';
+      displayEl.className = 'countdown-display';
+      subDisplay.textContent = '';
+      progressFill.style.width = '0%';
+      return;
+    }
+    const now = new Date();
+    const target = new Date(data.targetDate + 'T00:00:00');
+    const created = new Date(data.createdDate);
+    const diffMs = target.getTime() - now.getTime();
+    const totalMs = target.getTime() - created.getTime();
+
+    if (diffMs > 0) {
+      const days = Math.floor(diffMs / 86400000);
+      const hrs = Math.floor((diffMs % 86400000) / 3600000);
+      const mins = Math.floor((diffMs % 3600000) / 60000);
+      if (days > 0) {
+        displayEl.textContent = `${days} day${days !== 1 ? 's' : ''}`;
+        subDisplay.textContent = `${hrs} hr${hrs !== 1 ? 's' : ''}, ${mins} min`;
+      } else {
+        displayEl.textContent = `${hrs} hr${hrs !== 1 ? 's' : ''}, ${mins} min`;
+        subDisplay.textContent = 'less than a day';
+      }
+      displayEl.className = 'countdown-display';
+      const progress = totalMs > 0 ? Math.max(0, Math.min(100, ((totalMs - diffMs) / totalMs) * 100)) : 0;
+      progressFill.style.width = progress + '%';
+    } else if (diffMs > -86400000) {
+      displayEl.textContent = 'Today!';
+      displayEl.className = 'countdown-display countdown-today';
+      subDisplay.textContent = data.countdownLabel || '';
+      progressFill.style.width = '100%';
+    } else {
+      const daysAgo = Math.ceil(Math.abs(diffMs) / 86400000);
+      displayEl.textContent = `${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago`;
+      displayEl.className = 'countdown-display countdown-past';
+      subDisplay.textContent = '';
+      progressFill.style.width = '100%';
+    }
+  }
+
+  dateInput.addEventListener('change', () => {
+    data.targetDate = dateInput.value || null;
+    save();
+    updateCountdown();
+  });
+  dateInput.addEventListener('keydown', e => e.stopPropagation());
+
+  updateCountdown();
+  intervalId = setInterval(updateCountdown, 60000);
+
+  // Cleanup on card removal
+  const observer = new MutationObserver(() => {
+    if (!body.isConnected) { clearInterval(intervalId); observer.disconnect(); }
+  });
+  observer.observe(document.getElementById('canvas'), { childList: true, subtree: true });
+}
+
+// ── HABIT TRACKER CARD BODY ─────────────────────────────────
+function buildHabitsBody(body, data) {
+  if (!data.habits) data.habits = [];
+  body.classList.add('habits-body');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'habits-wrap';
+
+  function getDay(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d;
+  }
+  function dateStr(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function dayLabel(d) { return ['S','M','T','W','T','F','S'][d.getDay()]; }
+
+  const today = dateStr(new Date());
+  const days = [];
+  for (let i = -6; i <= 0; i++) {
+    const d = getDay(i);
+    days.push({ date: dateStr(d), label: dayLabel(d), isToday: i === 0 });
+  }
+
+  function calcStreak(habit) {
+    let streak = 0;
+    const d = new Date();
+    while (true) {
+      const key = dateStr(d);
+      if (habit.checks && habit.checks[key]) { streak++; d.setDate(d.getDate() - 1); }
+      else break;
+    }
+    return streak;
+  }
+
+  function render() {
+    wrap.innerHTML = '';
+
+    // Day headers
+    const header = document.createElement('div');
+    header.className = 'habits-header';
+    header.innerHTML = '<span></span>'; // empty for name column
+    days.forEach(d => {
+      const lbl = document.createElement('span');
+      lbl.className = 'habits-day-label' + (d.isToday ? ' today' : '');
+      lbl.textContent = d.label;
+      header.appendChild(lbl);
+    });
+    header.innerHTML += '<span class="habits-day-label" title="Streak">&#128293;</span><span></span>';
+    wrap.appendChild(header);
+
+    // Habit rows
+    data.habits.forEach(habit => {
+      if (!habit.checks) habit.checks = {};
+      const row = document.createElement('div');
+      row.className = 'habits-row';
+
+      const name = document.createElement('span');
+      name.className = 'habits-name';
+      name.textContent = habit.name;
+      name.title = habit.name;
+      row.appendChild(name);
+
+      days.forEach(d => {
+        const check = document.createElement('button');
+        const isChecked = !!habit.checks[d.date];
+        check.className = 'habits-check' + (isChecked ? ' checked' : '') + (d.isToday ? ' clickable' : '');
+        if (d.isToday) {
+          check.addEventListener('click', () => {
+            habit.checks[d.date] = !habit.checks[d.date];
+            if (!habit.checks[d.date]) delete habit.checks[d.date];
+            save();
+            render();
+          });
+        }
+        row.appendChild(check);
+      });
+
+      // Streak
+      const streak = calcStreak(habit);
+      const streakEl = document.createElement('span');
+      streakEl.className = 'habits-streak' + (streak > 0 ? ' active' : '');
+      streakEl.textContent = streak > 0 ? streak : '';
+      row.appendChild(streakEl);
+
+      // Delete button (hidden, show on hover)
+      const delBtn = document.createElement('button');
+      delBtn.className = 'habits-delete';
+      delBtn.innerHTML = '&times;';
+      delBtn.title = 'Remove habit';
+      delBtn.addEventListener('click', () => {
+        data.habits = data.habits.filter(h => h.id !== habit.id);
+        save();
+        render();
+      });
+      row.appendChild(delBtn);
+
+      wrap.appendChild(row);
+    });
+
+    // Add habit input
+    const addDiv = document.createElement('div');
+    addDiv.className = 'habits-add';
+    const addInput = document.createElement('input');
+    addInput.className = 'habits-add-input';
+    addInput.type = 'text';
+    addInput.placeholder = '+ add habit';
+    addInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && addInput.value.trim()) {
+        e.preventDefault();
+        data.habits.push({ id: uid(), name: addInput.value.trim(), checks: {} });
+        addInput.value = '';
+        save();
+        render();
+      }
+      e.stopPropagation();
+    });
+    addDiv.appendChild(addInput);
+    wrap.appendChild(addDiv);
+  }
+
+  render();
+  body.appendChild(wrap);
+}
+
+// ── USAGE CARD BODY ──────────────────────────────────────────
+function buildUsageBody(body, data) {
+  body.classList.add('usage-body');
+  if (!data.usagePlan) data.usagePlan = 45;
+
+  const wrap = document.createElement('div');
+  wrap.style.padding = '10px 14px 10px 18px';
+
+  // Stats row
+  const stats = document.createElement('div');
+  stats.className = 'usage-stats';
+  const countEl = document.createElement('span');
+  countEl.className = 'usage-count';
+  countEl.textContent = '—';
+  const pctEl = document.createElement('span');
+  pctEl.className = 'usage-pct';
+  pctEl.textContent = '';
+  stats.appendChild(countEl);
+  stats.appendChild(pctEl);
+  wrap.appendChild(stats);
+
+  // Progress bar
+  const barWrap = document.createElement('div');
+  barWrap.className = 'usage-bar-wrap';
+  const bar = document.createElement('div');
+  bar.className = 'usage-bar';
+  bar.style.width = '0%';
+  barWrap.appendChild(bar);
+  wrap.appendChild(barWrap);
+
+  // Reset timer
+  const resetEl = document.createElement('div');
+  resetEl.className = 'usage-reset';
+  resetEl.textContent = '';
+  wrap.appendChild(resetEl);
+
+  // Plan selector
+  const select = document.createElement('select');
+  select.className = 'usage-plan-select';
+  select.setAttribute('aria-label', 'Select Claude usage plan');
+  select.addEventListener('mousedown', e => e.stopPropagation());
+  [
+    { v: 45,  l: 'Pro — 45 msgs / 5h' },
+    { v: 225, l: 'Max 5x — 225 msgs / 5h' },
+    { v: 900, l: 'Max 20x — 900 msgs / 5h' },
+  ].forEach(({ v, l }) => {
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = l;
+    if (v === data.usagePlan) opt.selected = true;
+    select.appendChild(opt);
+  });
+  select.addEventListener('change', () => {
+    data.usagePlan = parseInt(select.value, 10);
+    save();
+    refresh();
+  });
+  wrap.appendChild(select);
+  body.appendChild(wrap);
+
+  // Refresh logic
+  async function refresh() {
+    if (!window.electronAPI?.readClaudeUsage) {
+      countEl.textContent = 'Electron only';
+      pctEl.textContent = '';
+      bar.style.width = '0%';
+      resetEl.textContent = '';
+      return;
+    }
+    try {
+      const usage = await window.electronAPI.readClaudeUsage();
+      const msgs  = usage.messages || 0;
+      const limit = data.usagePlan || 45;
+      const pct   = Math.min(100, Math.round((msgs / limit) * 100));
+
+      countEl.textContent = `~${msgs} messages`;
+      const barPct = Math.min(100, pct);
+      pctEl.textContent   = pct >= 100 ? 'high usage' : `~${pct}%`;
+      bar.style.width     = `${barPct}%`;
+      bar.className       = 'usage-bar' + (pct >= 90 ? ' crit' : pct >= 70 ? ' warn' : '');
+
+      // Estimate reset time (next 5h window boundary)
+      const now   = Date.now();
+      const windowMs = 5 * 60 * 60 * 1000;
+      const msLeft = windowMs - (now % windowMs);
+      const hrsLeft = Math.floor(msLeft / 3600000);
+      const minsLeft = Math.floor((msLeft % 3600000) / 60000);
+      resetEl.textContent = `Estimated · resets in ~${hrsLeft}h ${minsLeft}m`;
+    } catch (e) {
+      countEl.textContent = 'Error';
+      pctEl.textContent = '';
+    }
+  }
+
+  refresh();
+  // Auto-refresh every 60s
+  const interval = setInterval(refresh, 60000);
+  // Clean up when card is removed from DOM
+  const observer = new MutationObserver(() => {
+    if (!document.contains(body)) { clearInterval(interval); observer.disconnect(); }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// ── POMODORO ─────────────────────────────────────────────────
+function buildPomodoroBody(body, data) {
+  if (!data.workMins) data.workMins = 25;
+  if (!data.breakMins) data.breakMins = 5;
+  if (!data.longBreakMins) data.longBreakMins = 15;
+  if (!data.sessionsTarget) data.sessionsTarget = 4;
+
+  const CIRCUMFERENCE = 2 * Math.PI * 48;
+  let timeLeft = data.workMins * 60;
+  let totalTime = data.workMins * 60;
+  let running = false;
+  let intervalId = null;
+  let session = 1;
+  let isBreak = false;
+  let isLongBreak = false;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'pomodoro-wrap';
+
+  // Ring
+  const ringWrap = document.createElement('div');
+  ringWrap.className = 'pomodoro-ring-wrap';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'pomodoro-ring');
+  svg.setAttribute('viewBox', '0 0 110 110');
+  const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  bgCircle.setAttribute('class', 'pomodoro-ring-bg');
+  bgCircle.setAttribute('cx', '55'); bgCircle.setAttribute('cy', '55'); bgCircle.setAttribute('r', '48');
+  const fgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  fgCircle.setAttribute('class', 'pomodoro-ring-fg');
+  fgCircle.setAttribute('cx', '55'); fgCircle.setAttribute('cy', '55'); fgCircle.setAttribute('r', '48');
+  fgCircle.style.strokeDasharray = CIRCUMFERENCE;
+  fgCircle.style.strokeDashoffset = '0';
+  svg.appendChild(bgCircle); svg.appendChild(fgCircle);
+  ringWrap.appendChild(svg);
+
+  const timeCenter = document.createElement('div');
+  timeCenter.className = 'pomodoro-time';
+  const timeDisplay = document.createElement('div');
+  timeDisplay.className = 'pomodoro-time-display';
+  const phaseLabel = document.createElement('div');
+  phaseLabel.className = 'pomodoro-phase';
+  phaseLabel.textContent = 'Work';
+  const sessionLabel = document.createElement('div');
+  sessionLabel.className = 'pomodoro-session';
+  timeCenter.appendChild(timeDisplay);
+  timeCenter.appendChild(phaseLabel);
+  timeCenter.appendChild(sessionLabel);
+  ringWrap.appendChild(timeCenter);
+  wrap.appendChild(ringWrap);
+
+  // Controls
+  const controls = document.createElement('div');
+  controls.className = 'pomodoro-controls';
+  const startBtn = document.createElement('button');
+  startBtn.className = 'pomodoro-btn';
+  startBtn.textContent = 'Start';
+  startBtn.addEventListener('mousedown', e => e.stopPropagation());
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'pomodoro-btn';
+  resetBtn.textContent = 'Reset';
+  resetBtn.addEventListener('mousedown', e => e.stopPropagation());
+  controls.appendChild(startBtn); controls.appendChild(resetBtn);
+  wrap.appendChild(controls);
+
+  // Settings
+  const settings = document.createElement('div');
+  settings.className = 'pomodoro-settings';
+  function settingRow(label, value, key) {
+    const row = document.createElement('div');
+    row.className = 'pomodoro-setting-row';
+    const lbl = document.createElement('span');
+    lbl.textContent = label;
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = '1'; inp.max = '120'; inp.value = value;
+    inp.addEventListener('mousedown', e => e.stopPropagation());
+    inp.addEventListener('change', () => {
+      const v = Math.max(1, Math.min(120, parseInt(inp.value, 10) || value));
+      inp.value = v; data[key] = v;
+      if (!running) resetTimer();
+      save();
+    });
+    row.appendChild(lbl); row.appendChild(inp);
+    return row;
+  }
+  settings.appendChild(settingRow('Work (min)', data.workMins, 'workMins'));
+  settings.appendChild(settingRow('Break (min)', data.breakMins, 'breakMins'));
+  settings.appendChild(settingRow('Long break (min)', data.longBreakMins, 'longBreakMins'));
+  wrap.appendChild(settings);
+
+  body.appendChild(wrap);
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60), sec = s % 60;
+    return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  }
+  function updateDisplay() {
+    timeDisplay.textContent = formatTime(timeLeft);
+    sessionLabel.textContent = session + '/' + data.sessionsTarget;
+    const progress = totalTime > 0 ? (totalTime - timeLeft) / totalTime : 0;
+    fgCircle.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+    phaseLabel.textContent = isLongBreak ? 'Long Break' : isBreak ? 'Break' : 'Work';
+  }
+  function tick() {
+    if (timeLeft > 0) {
+      timeLeft--;
+      updateDisplay();
+    } else {
+      clearInterval(intervalId); intervalId = null; running = false;
+      startBtn.textContent = 'Start'; startBtn.classList.remove('active');
+      if (!isBreak && !isLongBreak) {
+        if (session >= data.sessionsTarget) {
+          isLongBreak = true; isBreak = false;
+          timeLeft = data.longBreakMins * 60; totalTime = timeLeft;
+          session = 1;
+          showPremiumToast('Break time! Long break.');
+        } else {
+          isBreak = true; isLongBreak = false;
+          timeLeft = data.breakMins * 60; totalTime = timeLeft;
+          showPremiumToast('Break time!');
+        }
+      } else {
+        const wasLongBreak = isLongBreak;
+        isBreak = false; isLongBreak = false;
+        if (!wasLongBreak) session++;
+        timeLeft = data.workMins * 60; totalTime = timeLeft;
+        showPremiumToast('Back to work!');
+      }
+      updateDisplay();
+      // Auto-start next phase
+      running = true; startBtn.textContent = 'Pause'; startBtn.classList.add('active');
+      intervalId = setInterval(tick, 1000);
+    }
+  }
+  function resetTimer() {
+    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    running = false; isBreak = false; isLongBreak = false; session = 1;
+    timeLeft = data.workMins * 60; totalTime = timeLeft;
+    startBtn.textContent = 'Start'; startBtn.classList.remove('active');
+    updateDisplay();
+  }
+  startBtn.addEventListener('click', () => {
+    if (running) {
+      clearInterval(intervalId); intervalId = null; running = false;
+      startBtn.textContent = 'Start'; startBtn.classList.remove('active');
+    } else {
+      running = true; startBtn.textContent = 'Pause'; startBtn.classList.add('active');
+      intervalId = setInterval(tick, 1000);
+    }
+  });
+  resetBtn.addEventListener('click', resetTimer);
+  updateDisplay();
+
+  // Clean up interval when card removed
+  const pomObserver = new MutationObserver(() => {
+    if (!document.contains(body)) { if (intervalId) clearInterval(intervalId); pomObserver.disconnect(); }
+  });
+  pomObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 // ── RESIZE: BOTTOM HEIGHT ─────────────────────────────────────
@@ -2284,20 +4615,67 @@ function showCtxMenu(mx, my, data, el) {
   ctxMenu.appendChild(colorLabel);
 
   const colorRow = document.createElement('div');
-  colorRow.style.cssText = 'display:flex;gap:8px;padding:2px 12px 8px;';
+  colorRow.style.cssText = 'display:flex;gap:8px;padding:2px 12px 8px;flex-wrap:wrap;align-items:center;';
+  function applyAccent(color) {
+    data.accent = color;
+    el.querySelector('.card-accent').style.background = color;
+    el.style.setProperty('--accent', color);
+    el.style.setProperty('--accent-rgb', hexToRgbStr(color));
+    el.style.setProperty('--block-accent', color);
+    save();
+    hideCtxMenu();
+  }
   ACCENTS.forEach(color => {
     const dot = document.createElement('div');
     dot.style.cssText = `width:16px;height:16px;border-radius:50%;background:${color};cursor:pointer;flex-shrink:0;outline:2px solid ${data.accent === color ? '#fff' : 'transparent'};outline-offset:2px;transition:outline-color 0.1s;`;
-    dot.addEventListener('click', () => {
-      data.accent = color;
-      el.querySelector('.card-accent').style.background = color;
-      el.style.setProperty('--accent', color);
-      save();
-      hideCtxMenu();
-    });
+    dot.addEventListener('click', () => applyAccent(color));
     colorRow.appendChild(dot);
   });
+  // Custom accent color (premium)
+  if (premiumMode) {
+    const customDot = document.createElement('div');
+    const isCustom = data.accent && !ACCENTS.includes(data.accent);
+    customDot.style.cssText = `width:16px;height:16px;border-radius:50%;background:${isCustom ? data.accent : 'conic-gradient(red,yellow,lime,aqua,blue,magenta,red)'};cursor:pointer;flex-shrink:0;outline:2px solid ${isCustom ? '#fff' : 'transparent'};outline-offset:2px;transition:outline-color 0.1s;position:relative;overflow:hidden;`;
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.value = data.accent || '#7c6dfa';
+    colorInput.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;';
+    colorInput.addEventListener('mousedown', e => e.stopPropagation());
+    colorInput.addEventListener('input', () => {
+      applyAccent(colorInput.value);
+    });
+    customDot.appendChild(colorInput);
+    colorRow.appendChild(customDot);
+  }
   ctxMenu.appendChild(colorRow);
+
+  // Opacity slider (premium)
+  if (premiumMode) {
+    divider();
+    const opacityLabel = document.createElement('div');
+    opacityLabel.className = 'ctx-item';
+    opacityLabel.textContent = 'Opacity';
+    opacityLabel.style.cssText = 'cursor:default;opacity:0.5;padding-bottom:2px;';
+    opacityLabel.addEventListener('mouseenter', () => opacityLabel.style.background = '');
+    ctxMenu.appendChild(opacityLabel);
+    const opacityRow = document.createElement('div');
+    opacityRow.className = 'ctx-opacity-row';
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = '0.3'; slider.max = '1'; slider.step = '0.05';
+    slider.value = data.opacity !== undefined ? data.opacity : 1;
+    slider.addEventListener('mousedown', e => e.stopPropagation());
+    const valSpan = document.createElement('span');
+    valSpan.textContent = Math.round((data.opacity || 1) * 100) + '%';
+    slider.addEventListener('input', () => {
+      const v = parseFloat(slider.value);
+      data.opacity = v;
+      el.style.opacity = v;
+      valSpan.textContent = Math.round(v * 100) + '%';
+      save();
+    });
+    opacityRow.appendChild(slider); opacityRow.appendChild(valSpan);
+    ctxMenu.appendChild(opacityRow);
+  }
 
   divider();
   item('Delete card', () => deleteCard(data, el), true);
@@ -2347,7 +4725,9 @@ function setLocked(data, el, locked) {
   pushHistory();
   data.locked = locked;
   el.classList.toggle('locked', locked);
-  el.querySelector('.lock-icon').style.display = locked ? '' : 'none';
+  const li = el.querySelector('.lock-icon');
+  li.style.display = locked ? '' : 'none';
+  li.tabIndex = locked ? 0 : -1;
   save();
 }
 
@@ -2374,7 +4754,9 @@ function duplicateCard(srcData) {
 
   cards.push(newData);
   const newEl = buildCard(newData);
+  newEl.classList.add('spawning');
   document.getElementById('canvas').appendChild(newEl);
+  newEl.addEventListener('animationend', () => newEl.classList.remove('spawning'), { once: true });
 
   // If source had a parent, add duplicate as sibling (same parent, same edge)
   if (srcData.snapParent) {
@@ -2400,6 +4782,7 @@ let fmtData    = null;
 FMT_STYLES.forEach(style => {
   const btn = document.createElement('button');
   btn.textContent = style.label; btn.title = style.label;
+  btn.setAttribute('aria-label', 'Format text as ' + style.label);
   btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
   btn.addEventListener('click',     e => { e.stopPropagation(); applyFmt(style); });
   fmtToolbar.appendChild(btn);
@@ -2523,7 +4906,42 @@ function applyFmt(style) {
 // Multi-column layout that guarantees all cards stay inside viewport.
 // Fills each column top-to-bottom until (innerHeight - 40px), then
 // starts the next column. Column count grows as needed.
-document.getElementById('collect-btn').addEventListener('click', () => {
+// ── COLLECT DIRECTIONAL POPUP ─────────────────────────────────
+const collectBtn   = document.getElementById('collect-btn');
+const collectPopup = document.getElementById('collect-popup');
+let collectHoverTimer = null;
+
+collectBtn.addEventListener('mouseenter', () => {
+  collectHoverTimer = setTimeout(() => {
+    const rect = collectBtn.getBoundingClientRect();
+    collectPopup.style.left = (rect.left - 40) + 'px';
+    collectPopup.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+    collectPopup.classList.add('visible');
+  }, 400);
+});
+collectBtn.addEventListener('mouseleave', () => {
+  clearTimeout(collectHoverTimer);
+  setTimeout(() => {
+    if (!collectPopup.matches(':hover')) collectPopup.classList.remove('visible');
+  }, 200);
+});
+collectPopup.addEventListener('mouseleave', () => collectPopup.classList.remove('visible'));
+
+collectPopup.querySelectorAll('.collect-dir').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collectPopup.classList.remove('visible');
+    doCollect(btn.dataset.dir);
+  });
+});
+// Default click = collect to the same side as the toolbar (only if popup isn't showing)
+collectBtn.addEventListener('click', () => {
+  if (collectPopup.classList.contains('visible')) return; // let direction buttons handle it
+  const side = document.body.classList.contains('snapped-left') ? 'left' : 'right';
+  doCollect(side);
+});
+
+function doCollect(direction) {
   if (!cards.length) return;
   pushHistory();
 
@@ -2541,10 +4959,13 @@ document.getElementById('collect-btn').addEventListener('click', () => {
   // items: { type:'card', data, h, w } | { type:'group', group, members:[{data,el,h,w,relY}], h, w }
   const items = [];
   for (const d of sortedAll) {
+    // Skip locked cards and locked groups
+    if (d.locked && !d.groupId) continue;
     if (d.groupId) {
       if (processedGroups.has(d.groupId)) continue;
       processedGroups.add(d.groupId);
       const g = groups.find(gg => gg.id === d.groupId);
+      if (g && g.locked) continue; // locked groups stay in place
       if (!g) { // orphaned groupId — treat as regular card
         const e = document.querySelector(`.card[data-id="${d.id}"]`);
         items.push({ type: 'card', data: d, h: e ? e.offsetHeight : 200, w: e ? e.offsetWidth : 260 });
@@ -2574,76 +4995,113 @@ document.getElementById('collect-btn').addEventListener('click', () => {
     }
   }
 
-  // Lay out items into columns
-  const cols  = [];
-  let colX    = colStartX;
-  let colData = { x: colX, items: [] };
-  let curColH = 0;
-  for (const item of items) {
-    const gap = colData.items.length > 0 ? SNAP_GAP : 0;
-    if (curColH + gap + item.h > maxH && colData.items.length > 0) {
-      cols.push(colData);
-      const prevMaxW = Math.max(...colData.items.map(it => it.w));
-      colX += prevMaxW + colGap;
-      colData = { x: colX, items: [] };
-      curColH = 0;
-    }
-    colData.items.push(item);
-    curColH += gap + item.h;
-  }
-  if (colData.items.length) cols.push(colData);
-
-  // Anchor to toolbar side
   const TOOLBAR_MARGIN = 28 + 48 + 12;
-  const totalW = cols.reduce((sum, col, i) => {
-    const colW = Math.max(...col.items.map(it => it.w));
-    return sum + colW + (i < cols.length - 1 ? colGap : 0);
-  }, 0);
-  let offsetX;
-  if (document.body.classList.contains('snapped-left')) {
-    offsetX = TOOLBAR_MARGIN - colStartX;
-  } else {
-    const rightEdge = window.innerWidth - TOOLBAR_MARGIN;
-    offsetX = rightEdge - totalW;
-  }
-  cols.forEach(col => { col.x += offsetX; });
+  const maxW = window.innerWidth - 40;
+  const MARGIN = 20;
 
-  // Position items
-  cols.forEach(col => {
-    let y = 20;
-    const ungroupedSeq = []; // track ungrouped cards for snap-chain rebuild
-    col.items.forEach(item => {
-      if (item.type === 'card') {
-        item.data.x = col.x; item.data.y = y;
-        const e = document.querySelector(`.card[data-id="${item.data.id}"]`);
-        if (e) springElTo(item.data, e, col.x, y);
-        ungroupedSeq.push(item.data);
-        y += item.h + SNAP_GAP;
-      } else {
-        // Group block: place members at their relative positions inside the block
-        const baseX = col.x + GROUP_PAD;
-        const baseY = y + GROUP_HEADER_H + GROUP_PAD;
-        item.members.forEach(({ data: d, el, relY }) => {
-          const nx = baseX, ny = baseY + relY;
-          d.x = nx; d.y = ny;
-          if (el) springElTo(d, el, nx, ny);
-        });
-        y += item.h + SNAP_GAP;
-      }
-    });
-    // Rebuild snap chain for ungrouped cards only
-    for (let i = 1; i < ungroupedSeq.length; i++) {
-      const prev = ungroupedSeq[i-1], curr = ungroupedSeq[i];
-      curr.snapParent   = { id: prev.id, edge: 'top' };
-      prev.snapChildren = [{ id: curr.id, edge: 'top' }];
+  // Assign final (x, y) to each item based on direction
+  function placeItem(item, x, y) {
+    if (item.type === 'card') {
+      item.data.x = x; item.data.y = y;
+      const e = document.querySelector(`.card[data-id="${item.data.id}"]`);
+      if (e) springElTo(item.data, e, x, y);
+    } else {
+      const baseX = x + GROUP_PAD;
+      const baseY = y + GROUP_HEADER_H + GROUP_PAD;
+      item.members.forEach(({ data: d, el, relY }) => {
+        d.x = baseX; d.y = baseY + relY;
+        if (el) springElTo(d, el, d.x, d.y);
+      });
     }
-  });
+  }
+
+  if (direction === 'left' || direction === 'right') {
+    // ── COLUMN LAYOUT: stack top-to-bottom, wrap into new columns ──
+    const cols = [];
+    let colX = MARGIN, curCol = [], curH = 0;
+    for (const item of items) {
+      const gap = curCol.length > 0 ? SNAP_GAP : 0;
+      if (curH + gap + item.h > maxH && curCol.length > 0) {
+        cols.push({ x: colX, items: curCol });
+        colX += Math.max(...curCol.map(it => it.w)) + colGap;
+        curCol = []; curH = 0;
+      }
+      curCol.push(item);
+      curH += (curCol.length > 1 ? SNAP_GAP : 0) + item.h;
+    }
+    if (curCol.length) cols.push({ x: colX, items: curCol });
+
+    // Compute total width and anchor
+    const totalW = cols.reduce((s, c, i) => s + Math.max(...c.items.map(it => it.w)) + (i < cols.length - 1 ? colGap : 0), 0);
+    let offX;
+    if (direction === 'right') offX = window.innerWidth - TOOLBAR_MARGIN - totalW - MARGIN;
+    else offX = TOOLBAR_MARGIN - MARGIN;
+    cols.forEach(c => c.x += offX);
+
+    // Position
+    cols.forEach(col => {
+      let y = MARGIN;
+      const colW = Math.max(...col.items.map(it => it.w));
+      col.items.forEach(item => {
+        // Right-align: push narrower cards to the right edge of the column
+        const x = direction === 'right' ? col.x + colW - item.w : col.x;
+        placeItem(item, x, y);
+        y += item.h + SNAP_GAP;
+      });
+    });
+
+  } else {
+    // ── ROW LAYOUT: arrange side-by-side, wrap into new rows ──
+    const rows = [];
+    let curRow = [], curW = 0;
+    for (const item of items) {
+      const gap = curRow.length > 0 ? colGap : 0;
+      if (curW + gap + item.w > maxW && curRow.length > 0) {
+        rows.push(curRow);
+        curRow = []; curW = 0;
+      }
+      curRow.push(item);
+      curW += (curRow.length > 1 ? colGap : 0) + item.w;
+    }
+    if (curRow.length) rows.push(curRow);
+
+    if (direction === 'top') {
+      // Rows from top edge downward, cards top-aligned in each row
+      let y = MARGIN;
+      rows.forEach(row => {
+        const rowW = row.reduce((s, it, i) => s + it.w + (i > 0 ? colGap : 0), 0);
+        let x = Math.max(MARGIN, (window.innerWidth - rowW) / 2);
+        const rowH = Math.max(...row.map(it => it.h));
+        row.forEach(item => {
+          placeItem(item, x, y);
+          x += item.w + colGap;
+        });
+        y += rowH + SNAP_GAP;
+      });
+    } else {
+      // direction === 'bottom': rows from bottom edge upward, cards bottom-aligned
+      const totalH = rows.reduce((s, row, i) => s + Math.max(...row.map(it => it.h)) + (i > 0 ? SNAP_GAP : 0), 0);
+      let y = Math.max(MARGIN, window.innerHeight - totalH - MARGIN);
+      rows.forEach(row => {
+        const rowW = row.reduce((s, it, i) => s + it.w + (i > 0 ? colGap : 0), 0);
+        let x = Math.max(MARGIN, (window.innerWidth - rowW) / 2);
+        const rowH = Math.max(...row.map(it => it.h));
+        row.forEach(item => {
+          // Bottom-align: push shorter cards down within the row
+          const itemY = y + rowH - item.h;
+          placeItem(item, x, itemY);
+          x += item.w + colGap;
+        });
+        y += rowH + SNAP_GAP;
+      });
+    }
+  }
 
   // Update all group frames to reflect new positions
   groups.forEach(g => updateGroupFrame(g.id));
 
   setTimeout(save, 650);
-});
+}
 
 // ── ADD CARD ──────────────────────────────────────────────────
 const addBtn = document.getElementById('add-btn');
@@ -2654,37 +5112,58 @@ addBtn.addEventListener('click', e => {
   // If toolbar is open, collapse it — then still open the picker
   if (document.body.classList.contains('toolbar-open')) {
     document.body.classList.remove('toolbar-open');
+    toolbarExpand.setAttribute('aria-expanded', 'false');
   }
   picker.classList.toggle('visible');
   addBtn.classList.toggle('open');
+  const isOpen = picker.classList.contains('visible');
+  addBtn.setAttribute('aria-expanded', isOpen);
 });
 document.addEventListener('click', () => {
   picker.classList.remove('visible');
   addBtn.classList.remove('open');
+  addBtn.setAttribute('aria-expanded', 'false');
+  document.querySelectorAll('.picker-ctx-menu').forEach(m => m.remove());
 });
 picker.addEventListener('click', e => e.stopPropagation());
 
-document.querySelectorAll('.picker-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const type = btn.dataset.type;
+const PREMIUM_TYPES = new Set(['usage', 'schedule', 'pomodoro', 'stopwatch', 'countdown', 'habits']);
+const CARD_TITLES   = { todo: 'new list', text: 'note', image: 'image', usage: 'Claude usage', schedule: 'schedule', pomodoro: 'pomodoro', stopwatch: 'stopwatch', countdown: 'countdown', habits: 'habits' };
+const CARD_ACCENTS  = { usage: '#fb923c', schedule: '#60a5fa', pomodoro: '#f472b6', stopwatch: '#06b6d4', countdown: '#ef4444', habits: '#10b981' };
+
+function spawnCard(type) {
+    // Premium-gated types
+    if (PREMIUM_TYPES.has(type) && !premiumMode) {
+      showPremiumToast('Upgrade to unlock this card');
+      picker.classList.remove('visible');
+      addBtn.classList.remove('open');
+      return;
+    }
     const pos  = getSpawnPos(null);
     const newCard = {
       id: uid(), type,
-      accent: randAccent(),
-      title: type === 'todo' ? 'new list' : type === 'text' ? 'note' : 'image',
+      accent: CARD_ACCENTS[type] || randAccent(),
+      title: CARD_TITLES[type] || type,
       minimized: false, locked: false, groupId: null,
       x: pos.x, y: pos.y,
       z: ++zCounter,
       bodyHeight: null, cardWidth: null, snapParent: null, snapChildren: [],
-      items:   type === 'todo' ? [] : undefined,
+      items:   (type === 'todo' || type === 'schedule') ? [] : undefined,
       content: type === 'text' ? '' : undefined,
       imageData: null, imageAspectRatio: null,
+      usagePlan: type === 'usage' ? 45 : undefined,
+      workMins: type === 'pomodoro' ? 25 : undefined,
+      breakMins: type === 'pomodoro' ? 5 : undefined,
+      longBreakMins: type === 'pomodoro' ? 15 : undefined,
+      sessionsTarget: type === 'pomodoro' ? 4 : undefined,
     };
     pushHistory();
     cards.push(newCard);
     save();
     const cardEl = buildCard(newCard);
+    cardEl.classList.add('spawning');
     document.getElementById('canvas').appendChild(cardEl);
+    cardEl.addEventListener('animationend', () => cardEl.classList.remove('spawning'), { once: true });
     updateEmptyState();
     picker.classList.remove('visible');
     addBtn.classList.remove('open');
@@ -2728,7 +5207,71 @@ document.querySelectorAll('.picker-btn').forEach(btn => {
         sel.removeAllRanges(); sel.addRange(range);
       }
     });
+}
+
+// ── FAVORITES ──────────────────────────────────────────────────
+const FAV_KEY = 'floatboard_favorites';
+function getFavorites() {
+  try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch { return []; }
+}
+function setFavorites(arr) { localStorage.setItem(FAV_KEY, JSON.stringify(arr.slice(0, 3))); }
+
+function rebuildFavorites() {
+  const favSection = picker.querySelector('.picker-fav-section');
+  const favs = getFavorites();
+  // Remove old cloned buttons
+  favSection.querySelectorAll('.picker-btn').forEach(b => b.remove());
+  if (favs.length === 0) { favSection.style.display = 'none'; return; }
+  favSection.style.display = '';
+  favs.forEach(type => {
+    const srcBtn = picker.querySelector(`.picker-category .picker-btn[data-type="${type}"]`);
+    if (!srcBtn) return;
+    const clone = srcBtn.cloneNode(true);
+    clone.addEventListener('click', () => spawnCard(type));
+    clone.addEventListener('contextmenu', e => showPickerCtxMenu(e, type));
+    favSection.appendChild(clone);
   });
+}
+
+function showPickerCtxMenu(e, type) {
+  e.preventDefault(); e.stopPropagation();
+  // Remove any existing picker ctx menus
+  document.querySelectorAll('.picker-ctx-menu').forEach(m => m.remove());
+  const favs = getFavorites();
+  const isFav = favs.includes(type);
+  const menu = document.createElement('div');
+  menu.className = 'picker-ctx-menu';
+  const btn = document.createElement('button');
+  btn.textContent = isFav ? 'Remove from favorites' : 'Add to favorites';
+  btn.addEventListener('click', () => {
+    let updated = getFavorites();
+    if (isFav) { updated = updated.filter(t => t !== type); }
+    else if (updated.length < 3) { updated.push(type); }
+    setFavorites(updated);
+    rebuildFavorites();
+    menu.remove();
+  });
+  menu.appendChild(btn);
+  document.body.appendChild(menu);
+  menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+  menu.style.top = Math.min(e.clientY, window.innerHeight - 40) + 'px';
+  const dismiss = () => { menu.remove(); document.removeEventListener('click', dismiss); };
+  setTimeout(() => document.addEventListener('click', dismiss), 10);
+}
+
+// Bind picker buttons (including right-click for favorites)
+function bindPickerButtons() {
+  picker.querySelectorAll('.picker-category .picker-btn').forEach(btn => {
+    btn.addEventListener('click', () => spawnCard(btn.dataset.type));
+    btn.addEventListener('contextmenu', e => showPickerCtxMenu(e, btn.dataset.type));
+  });
+}
+bindPickerButtons();
+
+// Rebuild favorites when picker opens
+addBtn.addEventListener('click', () => {
+  // Fires after the toggle, so check if now visible
+  requestAnimationFrame(() => { if (picker.classList.contains('visible')) rebuildFavorites(); });
 });
 
 // ── CANVAS CONTEXT MENU (export / import) ────────────────────
@@ -2894,21 +5437,18 @@ function showGroupCtxMenu(groupId, mx, my) {
 
   divider();
 
-  item('Lock all', () => {
+  const isGroupLocked = g.locked;
+  item(isGroupLocked ? 'Unlock group' : 'Lock group', () => {
     pushHistory();
+    g.locked = !g.locked;
+    const frame = document.querySelector(`.group-frame[data-group-id="${groupId}"]`);
     getMembers().forEach(({ c, el }) => {
-      c.locked = true; el.classList.add('locked');
-      const li = el.querySelector('.lock-icon'); if (li) li.style.display = '';
+      c.locked = g.locked;
+      el.classList.toggle('locked', g.locked);
+      const li = el.querySelector('.lock-icon');
+      if (li) li.style.display = g.locked ? '' : 'none';
     });
-    save();
-  });
-
-  item('Unlock all', () => {
-    pushHistory();
-    getMembers().forEach(({ c, el }) => {
-      c.locked = false; el.classList.remove('locked');
-      const li = el.querySelector('.lock-icon'); if (li) li.style.display = 'none';
-    });
+    if (frame) frame.classList.toggle('group-locked', g.locked);
     save();
   });
 
@@ -2930,6 +5470,14 @@ window.addEventListener('mouseup', () => { isDragging = false; isResizing = fals
 // ── INIT ──────────────────────────────────────────────────────
 load().then(() => {
   renderAll();           // also calls updateEmptyState()
+  // Restore saved theme
+  if (_loadedTheme && _loadedTheme !== 'default') {
+    document.body.setAttribute('data-theme', _loadedTheme);
+    currentTheme = _loadedTheme;
+    document.querySelectorAll('.theme-option').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === _loadedTheme);
+    });
+  }
   // After first paint: clamp positions and body heights to current viewport
   requestAnimationFrame(() => { clampAllCards(); clampBodyHeights(); });
 });
@@ -2940,7 +5488,8 @@ const toolbarExpand = document.getElementById('toolbar-expand');
 // IDs of every button that should NOT close the toolbar when clicked
 const TOOLBAR_IDS = new Set([
   'toolbar-expand','btn-snap','undo-btn','collect-btn',
-  'gb-close','gb-pin','gb-min'
+  'gb-close','gb-pin','gb-min','gb-theme','theme-picker',
+  'settings-btn','settings-panel'
 ]);
 
 toolbarExpand.addEventListener('click', e => {
@@ -2948,9 +5497,11 @@ toolbarExpand.addEventListener('click', e => {
   // Also close picker when opening toolbar
   picker.classList.remove('visible');
   addBtn.classList.remove('open');
+  addBtn.setAttribute('aria-expanded', 'false');
   document.body.classList.toggle('toolbar-open');
   const isOpen = document.body.classList.contains('toolbar-open');
   toolbarExpand.dataset.tip = isOpen ? 'Collapse' : 'More tools';
+  toolbarExpand.setAttribute('aria-expanded', isOpen);
 });
 document.addEventListener('click', e => {
   // Walk up the event path — if we hit a toolbar button, leave it open
@@ -2977,7 +5528,7 @@ if (typeof window.electronAPI !== 'undefined') {
     e.stopPropagation(); window.electronAPI.quit();
   });
   document.getElementById('gb-min').addEventListener('click', e => {
-    e.stopPropagation(); window.electronAPI.minimize();
+    e.stopPropagation(); minimizeToBar();
   });
 
   const gbPin     = document.getElementById('gb-pin');
@@ -3002,6 +5553,333 @@ if (typeof window.electronAPI !== 'undefined') {
   document.body.classList.add('no-electron');
 }
 
+// ── PREMIUM TOGGLE (dev-only: Ctrl+Shift+P) ─────────────────
+let premiumMode = localStorage.getItem('floatboard_premium') === '1';
+if (premiumMode) document.body.classList.add('premium');
+
+const premiumToast = document.getElementById('premium-toast');
+function showPremiumToast(msg) {
+  premiumToast.textContent = msg;
+  premiumToast.classList.add('show');
+  setTimeout(() => premiumToast.classList.remove('show'), 1200);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.code === 'KeyP') {
+    e.preventDefault();
+    premiumMode = !premiumMode;
+    document.body.classList.toggle('premium', premiumMode);
+    localStorage.setItem('floatboard_premium', premiumMode ? '1' : '0');
+    showPremiumToast(premiumMode ? 'Premium: ON' : 'Premium: OFF');
+    if (!premiumMode) settingsPanel.classList.remove('visible');
+  }
+});
+
+// ── THEMES ───────────────────────────────────────────────────
+let currentTheme = 'default';
+
+function applyTheme(name) {
+  currentTheme = name;
+  if (name === 'default') document.body.removeAttribute('data-theme');
+  else document.body.setAttribute('data-theme', name);
+  save();
+}
+
+// ── THEMED CONFIRM MODAL ─────────────────────────────────────
+const confirmModal = document.getElementById('confirm-modal');
+function showConfirm(msg, onYes) {
+  const box = confirmModal.querySelector('.confirm-box');
+  box.querySelector('.confirm-msg').textContent = msg;
+  const actions = box.querySelector('.confirm-actions');
+  actions.innerHTML = '';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'confirm-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => confirmModal.classList.remove('visible'));
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'confirm-btn danger';
+  yesBtn.textContent = 'Confirm';
+  yesBtn.addEventListener('click', () => { confirmModal.classList.remove('visible'); onYes(); });
+  actions.appendChild(cancelBtn);
+  actions.appendChild(yesBtn);
+  confirmModal.classList.add('visible');
+  yesBtn.focus();
+}
+confirmModal.addEventListener('click', e => { if (e.target === confirmModal) confirmModal.classList.remove('visible'); });
+
+// ── SAVE SLOTS ───────────────────────────────────────────────
+let activeSlot = parseInt(localStorage.getItem('floatboard_slot') || '1', 10);
+function getSlotKey(slot) { return slot === 1 ? 'default' : 'slot' + slot; }
+
+function switchSlot(slot) {
+  // Save current board to current slot
+  if (window.electronAPI && window.electronAPI.saveData) {
+    const key = getSlotKey(activeSlot);
+    const json = JSON.stringify({ cards, groups, theme: currentTheme, slot: key });
+    localStorage.setItem('floatboard_board_' + key, json);
+  }
+  save();
+
+  // Switch
+  activeSlot = slot;
+  localStorage.setItem('floatboard_slot', String(slot));
+
+  // Load new slot
+  const slotData = localStorage.getItem('floatboard_board_' + getSlotKey(slot));
+  if (slotData) {
+    try {
+      const parsed = JSON.parse(slotData);
+      cards  = _hydrateCards(parsed.cards || []);
+      groups = _sanitizeGroups(parsed.groups || []);
+      if (parsed.theme) applyTheme(parsed.theme);
+    } catch(_) { cards = []; groups = []; }
+  } else {
+    cards = []; groups = [];
+  }
+  renderAll();
+  save();
+}
+
+// ── SETTINGS PANEL ───────────────────────────────────────────
+const settingsBtn   = document.getElementById('settings-btn');
+const settingsPanel = document.getElementById('settings-panel');
+
+function buildSettingsPanel() {
+  settingsPanel.innerHTML = '';
+
+  // Board slots
+  const slotLabel = document.createElement('div');
+  slotLabel.className = 'settings-label';
+  slotLabel.textContent = 'Board';
+  settingsPanel.appendChild(slotLabel);
+
+  [1, 2, 3].forEach(slot => {
+    const btn = document.createElement('button');
+    const isPro = slot > 1;
+    const isActive = activeSlot === slot;
+    btn.className = 'settings-item' + (isActive ? ' active' : '');
+    btn.innerHTML = 'Board ' + slot + (isPro && !premiumMode ? '<span class="pro-badge" style="margin-left:auto">PRO</span>' : '');
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (isPro && !premiumMode) { showPremiumToast('Upgrade to unlock save slots'); return; }
+      if (isActive) return;
+      switchSlot(slot);
+      settingsPanel.classList.remove('visible');
+      settingsBtn.classList.remove('open');
+    });
+    settingsPanel.appendChild(btn);
+  });
+
+  // Divider
+  const div0 = document.createElement('div');
+  div0.className = 'settings-divider';
+  settingsPanel.appendChild(div0);
+
+  // Themes
+  const themeLabel = document.createElement('div');
+  themeLabel.className = 'settings-label';
+  themeLabel.textContent = 'Theme';
+  settingsPanel.appendChild(themeLabel);
+
+  ['default', 'glass', 'neumorphism'].forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'settings-item' + (currentTheme === t ? ' active' : '');
+    const isPro = t !== 'default';
+    btn.innerHTML = t.charAt(0).toUpperCase() + t.slice(1) + (isPro && !premiumMode ? '<span class="pro-badge" style="margin-left:auto">PRO</span>' : '');
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (isPro && !premiumMode) { showPremiumToast('Upgrade to unlock themes'); return; }
+      applyTheme(t);
+      buildSettingsPanel();
+    });
+    settingsPanel.appendChild(btn);
+  });
+
+  // Divider
+  const div1 = document.createElement('div');
+  div1.className = 'settings-divider';
+  settingsPanel.appendChild(div1);
+
+  // ── Templates section (premium) ──────────────
+  if (premiumMode) {
+    const divT = document.createElement('div');
+    divT.className = 'settings-divider';
+    settingsPanel.appendChild(divT);
+
+    const tplLabel = document.createElement('div');
+    tplLabel.className = 'settings-label';
+    tplLabel.textContent = 'Templates';
+    settingsPanel.appendChild(tplLabel);
+
+    // Save as template
+    const saveTemplateBtn = document.createElement('button');
+    saveTemplateBtn.className = 'settings-item';
+    saveTemplateBtn.innerHTML = '<span style="font-size:14px">+</span> Save current board';
+    saveTemplateBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const templates = JSON.parse(localStorage.getItem('floatboard_templates') || '[]');
+      if (templates.length >= 5) {
+        showPremiumToast('Max 5 templates. Delete one first.');
+        return;
+      }
+      const name = prompt('Template name:');
+      if (!name || !name.trim()) return;
+      const tplCards = cards.map(c => {
+        const copy = Object.assign({}, c);
+        delete copy.imageData;
+        return copy;
+      });
+      templates.push({ id: uid(), name: name.trim(), timestamp: Date.now(), cards: tplCards });
+      localStorage.setItem('floatboard_templates', JSON.stringify(templates));
+      showPremiumToast('Template saved');
+      buildSettingsPanel();
+    });
+    settingsPanel.appendChild(saveTemplateBtn);
+
+    // Template list
+    const templates = JSON.parse(localStorage.getItem('floatboard_templates') || '[]');
+    if (templates.length > 0) {
+      const tplList = document.createElement('div');
+      tplList.className = 'template-list';
+      templates.forEach(tpl => {
+        const row = document.createElement('div');
+        row.className = 'template-item';
+        const nm = document.createElement('span');
+        nm.className = 'template-name';
+        nm.textContent = tpl.name;
+        const del = document.createElement('button');
+        del.className = 'template-delete';
+        del.textContent = '\u00d7';
+        del.addEventListener('click', e2 => {
+          e2.stopPropagation();
+          const updated = templates.filter(t => t.id !== tpl.id);
+          localStorage.setItem('floatboard_templates', JSON.stringify(updated));
+          showPremiumToast('Template deleted');
+          buildSettingsPanel();
+        });
+        row.appendChild(nm); row.appendChild(del);
+        row.addEventListener('click', e2 => {
+          e2.stopPropagation();
+          settingsPanel.classList.remove('visible');
+          settingsBtn.classList.remove('open');
+          showConfirm('Replace current board with template "' + tpl.name + '"?', () => {
+            pushHistory();
+            cards = JSON.parse(JSON.stringify(tpl.cards));
+            groups = [];
+            document.querySelectorAll('.group-frame').forEach(f => f.remove());
+            renderAll(); save();
+            showPremiumToast('Template loaded');
+          });
+        });
+        tplList.appendChild(row);
+      });
+      settingsPanel.appendChild(tplList);
+    }
+  } else {
+    const divT = document.createElement('div');
+    divT.className = 'settings-divider';
+    settingsPanel.appendChild(divT);
+
+    const tplLabel = document.createElement('div');
+    tplLabel.className = 'settings-label';
+    tplLabel.textContent = 'Templates';
+    settingsPanel.appendChild(tplLabel);
+
+    const tplLocked = document.createElement('button');
+    tplLocked.className = 'settings-item';
+    tplLocked.innerHTML = 'Save templates <span class="pro-badge" style="margin-left:auto">PRO</span>';
+    tplLocked.addEventListener('click', e => { e.stopPropagation(); showPremiumToast('Upgrade to save templates'); });
+    settingsPanel.appendChild(tplLocked);
+  }
+
+  // ── Export board as image (premium) ─────────
+  if (premiumMode) {
+    const divE = document.createElement('div');
+    divE.className = 'settings-divider';
+    settingsPanel.appendChild(divE);
+
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'settings-item';
+    exportBtn.innerHTML = '<span style="font-size:14px">&#128247;</span> Export as image';
+    exportBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+      settingsPanel.classList.remove('visible');
+      settingsBtn.classList.remove('open');
+      if (!window.electronAPI?.captureBoard) {
+        showPremiumToast('Export requires Electron');
+        return;
+      }
+      // Temporarily hide toolbar UI
+      const uiEls = document.querySelectorAll('#add-btn, #settings-btn, #toolbar-expand, #undo-btn, #collect-btn, #btn-snap, #kofi-btn, #gb-close, #gb-pin, #gb-min, #minimize-pill, #premium-toast, #empty-state, #version-label, #picker, #settings-panel, #ctx-menu, #fmt-toolbar');
+      uiEls.forEach(u => u.style.visibility = 'hidden');
+      await new Promise(r => setTimeout(r, 100));
+      try {
+        const dataUrl = await window.electronAPI.captureBoard();
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = 'floatboard-' + Date.now() + '.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showPremiumToast('Board exported!');
+      } catch (err) {
+        showPremiumToast('Export failed');
+      }
+      uiEls.forEach(u => u.style.visibility = '');
+    });
+    settingsPanel.appendChild(exportBtn);
+  } else {
+    const divE = document.createElement('div');
+    divE.className = 'settings-divider';
+    settingsPanel.appendChild(divE);
+
+    const exportLocked = document.createElement('button');
+    exportLocked.className = 'settings-item';
+    exportLocked.innerHTML = 'Export as image <span class="pro-badge" style="margin-left:auto">PRO</span>';
+    exportLocked.addEventListener('click', e => { e.stopPropagation(); showPremiumToast('Upgrade to export board'); });
+    settingsPanel.appendChild(exportLocked);
+  }
+
+  // Divider before danger zone
+  const div2 = document.createElement('div');
+  div2.className = 'settings-divider';
+  settingsPanel.appendChild(div2);
+
+  // Clear all
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'settings-item danger';
+  clearBtn.textContent = 'Clear all cards';
+  clearBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!cards.length) return;
+    settingsPanel.classList.remove('visible');
+    settingsBtn.classList.remove('open');
+    showConfirm('Remove all cards and groups? This cannot be undone.', () => {
+      pushHistory();
+      cards = []; groups = [];
+      document.querySelectorAll('.group-frame').forEach(f => f.remove());
+      renderAll(); save();
+    });
+  });
+  settingsPanel.appendChild(clearBtn);
+}
+
+settingsBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  picker.classList.remove('visible');
+  addBtn.classList.remove('open');
+  const wasOpen = settingsPanel.classList.contains('visible');
+  settingsPanel.classList.toggle('visible');
+  settingsBtn.classList.toggle('open');
+  if (!wasOpen) buildSettingsPanel();
+});
+
+document.addEventListener('click', () => {
+  settingsPanel.classList.remove('visible');
+  settingsBtn.classList.remove('open');
+});
+settingsPanel.addEventListener('click', e => e.stopPropagation());
+
 // ── KO-FI ──────────────────────────────────────────────────────
 const KOFI_URL = 'https://ko-fi.com/manuelconde';
 document.getElementById('kofi-btn').addEventListener('click', e => {
@@ -3013,13 +5891,99 @@ document.getElementById('kofi-btn').addEventListener('click', e => {
   }
 });
 
+// ── MINIMIZE TO PILL BAR ─────────────────────────────────────
+const minimizePill = document.getElementById('minimize-pill');
+let isMinimizedToBar = false;
+
+const UI_ELEMENTS = '#canvas, #add-btn, #toolbar-expand, #settings-btn, #collect-btn, #undo-btn, #btn-snap, #kofi-btn, #gb-close, #gb-pin, #gb-min, #empty-state, #version-label';
+
+function minimizeToBar() {
+  isMinimizedToBar = true;
+  document.body.classList.remove('toolbar-open');
+  settingsPanel.classList.remove('visible');
+  picker.classList.remove('visible');
+
+  // Get pill target position for the suction effect
+  const pillRect = minimizePill.getBoundingClientRect();
+  const targetX  = pillRect.left + pillRect.width / 2 || window.innerWidth - 80;
+  const targetY  = pillRect.top + pillRect.height / 2 || window.innerHeight - 30;
+
+  // Animate each card toward the pill position
+  document.querySelectorAll('.card').forEach((el, i) => {
+    const rect = el.getBoundingClientRect();
+    const dx = targetX - (rect.left + rect.width / 2);
+    const dy = targetY - (rect.top + rect.height / 2);
+    el.style.transition = `transform 0.4s cubic-bezier(0.6, 0, 0.7, 0.2) ${i * 20}ms, opacity 0.35s ease ${i * 20}ms`;
+    el.style.transform  = `translate(${dx}px, ${dy}px) scale(0.05)`;
+    el.style.opacity     = '0';
+  });
+
+  // Fade toolbar buttons toward pill
+  document.querySelectorAll('#add-btn, #toolbar-expand, #settings-btn, #collect-btn, #undo-btn, #btn-snap, #kofi-btn, #gb-close, #gb-pin, #gb-min').forEach(el => {
+    el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    el.style.opacity = '0';
+    el.style.transform = 'scale(0.5)';
+  });
+  document.querySelectorAll('#empty-state, #version-label').forEach(el => {
+    el.style.transition = 'opacity 0.25s ease';
+    el.style.opacity = '0';
+  });
+
+  setTimeout(() => {
+    document.querySelectorAll(UI_ELEMENTS).forEach(el => el.style.display = 'none');
+    minimizePill.classList.add('visible');
+  }, 450);
+}
+
+function restoreFromBar() {
+  isMinimizedToBar = false;
+  minimizePill.classList.remove('visible');
+
+  // Reset card transforms first
+  document.querySelectorAll('.card').forEach(el => {
+    el.style.transition = 'none';
+    el.style.transform  = 'scale(0.9)';
+    el.style.opacity     = '0';
+  });
+
+  document.querySelectorAll(UI_ELEMENTS).forEach(el => {
+    el.style.display = '';
+  });
+
+  // Animate cards popping back from center
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.card').forEach((el, i) => {
+      el.style.transition = `transform 0.35s cubic-bezier(0.34,1.15,0.64,1) ${i * 30}ms, opacity 0.3s ease ${i * 30}ms`;
+      el.style.transform  = '';
+      el.style.opacity     = '';
+    });
+    document.querySelectorAll('#add-btn, #toolbar-expand, #settings-btn, #collect-btn, #undo-btn, #btn-snap, #kofi-btn, #gb-close, #gb-pin, #gb-min, #empty-state, #version-label').forEach(el => {
+      el.style.transition = 'opacity 0.3s ease';
+      el.style.opacity = '';
+      el.style.transform = '';
+    });
+  });
+  updateEmptyState();
+}
+
+minimizePill.addEventListener('click', restoreFromBar);
+
+// Keyboard shortcut to restore: Ctrl+Shift+F also restores if minimized
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.code === 'KeyF' && isMinimizedToBar) {
+    e.preventDefault();
+    restoreFromBar();
+  }
+});
+
 // ── CLICK-THROUGH ─────────────────────────────────────────────
 // When cursor is over a card or toolbar zone → receive mouse events.
 // When over empty transparent canvas → pass through to OS (Figma, VS Code, etc).
 const INTERACTIVE = [
   '.card', '.group-frame', '#add-btn', '#undo-btn', '#collect-btn', '#btn-snap',
   '#kofi-btn', '#picker', '#ctx-menu', '#fmt-toolbar', '#titlebar',
-  '#toolbar-expand', '#gb-close', '#gb-pin', '#gb-min'
+  '#toolbar-expand', '#gb-close', '#gb-pin', '#gb-min',
+  '#settings-btn', '#settings-panel', '#minimize-pill', '#collect-popup', '#confirm-modal'
 ].join(', ');
 
 let _lastIgnore = true;
