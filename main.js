@@ -1,13 +1,25 @@
 const { app, BrowserWindow, ipcMain, screen, globalShortcut, Tray, Menu, nativeImage, shell } = require('electron')
-const path = require('path')
-const fs   = require('fs')
-const os   = require('os')
+const path  = require('path')
+const fs    = require('fs')
+const os    = require('os')
+const https = require('https')
 
 const IS_WIN = process.platform === 'win32'
 const IS_MAC = process.platform === 'darwin'
+const IS_DEV = process.argv.includes('--dev') || process.env.FLOATBOARD_DEV === '1'
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 app.commandLine.appendSwitch('disk-cache-size', '0')
+
+// ── SINGLE-INSTANCE LOCK ──
+// When `npm start` is run while an instance is already running, the second
+// instance immediately tells the first one to reload (picks up renderer code
+// changes) and then quits. No more accumulating windows during dev.
+const gotInstanceLock = app.requestSingleInstanceLock()
+if (!gotInstanceLock) {
+  app.quit()
+  process.exit(0)
+}
 
 let win
 let tray
@@ -201,6 +213,126 @@ ipcMain.handle('capture-board', async () => {
   return img.toDataURL()
 })
 
+// ── SCREENSHOT STUDIO — save captured PNGs to disk ──────────
+// Used by the dev-only screenshot studio (Ctrl+Shift+B etc.) to
+// dump theme/menu captures into ~/Pictures/Floatboard-Screenshots/.
+const SCREENSHOTS_DIR = path.join(os.homedir(), 'Pictures', 'Floatboard-Screenshots')
+ipcMain.handle('save-screenshot', async (_, { filename, dataUrl }) => {
+  try {
+    if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+    // Strip "data:image/png;base64," prefix
+    const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+    const buf = Buffer.from(base64, 'base64')
+    const safeName = filename.replace(/[^\w.-]/g, '_')
+    const filePath = path.join(SCREENSHOTS_DIR, safeName)
+    fs.writeFileSync(filePath, buf)
+    return { ok: true, path: filePath }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
+ipcMain.handle('open-screenshots-folder', async () => {
+  if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+  shell.openPath(SCREENSHOTS_DIR)
+  return { ok: true, path: SCREENSHOTS_DIR }
+})
+
+// ── GLASS THEME — vibrancy for macOS (Windows acrylic can't combine
+// with our transparent click-through window, so we rely on CSS
+// backdrop-filter + a transparent body for Windows instead).
+ipcMain.on('set-glass-mode', (_, enabled) => {
+  if (!win) return
+  if (IS_MAC && typeof win.setVibrancy === 'function') {
+    try { win.setVibrancy(enabled ? 'under-window' : null) } catch (_) {}
+  }
+})
+
+// ── GUMROAD LICENSE VERIFICATION ──────────────────────────────
+// Public API — no secret required. Docs:
+// https://help.gumroad.com/article/76-license-keys
+// POST https://api.gumroad.com/v2/licenses/verify
+//   params: product_id, license_key, increment_uses_count (true/false)
+// Returns { success: true, purchase: {...}, uses: N } on valid key.
+// We do this from main (Node) instead of renderer (fetch) to avoid CORS
+// and to keep the product_id out of DevTools for shipped builds.
+ipcMain.handle('verify-license', async (_, { productId, licenseKey, incrementUses }) => {
+  return new Promise(resolve => {
+    if (!productId || !licenseKey) {
+      return resolve({ ok: false, code: 'missing_params', message: 'Missing product id or license key.' })
+    }
+    // Manual URL encoding for reliability — URLSearchParams is stricter than
+    // application/x-www-form-urlencoded needs to be for Gumroad.
+    const encode = s => encodeURIComponent(s)
+    const postData =
+      'product_id='         + encode(productId) +
+      '&license_key='       + encode(licenseKey.trim()) +
+      '&increment_uses_count=' + (incrementUses === false ? 'false' : 'true')
+
+    const req = https.request({
+      hostname: 'api.gumroad.com',
+      port: 443,
+      path: '/v2/licenses/verify',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(postData)
+      },
+      timeout: 10000
+    }, res => {
+      let body = ''
+      res.on('data', chunk => body += chunk)
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body)
+          if (data.success) {
+            const p = data.purchase || {}
+            if (p.refunded || p.chargebacked) {
+              return resolve({ ok: false, code: 'refunded', message: 'This license has been refunded.' })
+            }
+            if (p.disputed) {
+              return resolve({ ok: false, code: 'disputed', message: 'This license is disputed. Contact support.' })
+            }
+            return resolve({
+              ok: true,
+              code: 'active',
+              key: licenseKey.trim(),
+              email: p.email || '',
+              saleId: p.sale_id || '',
+              productName: p.product_name || 'Floatboard Pro',
+              uses: data.uses || 0,
+              verifiedAt: Date.now()
+            })
+          }
+          return resolve({
+            ok: false,
+            code: 'invalid',
+            message: data.message || 'Invalid license key.'
+          })
+        } catch (e) {
+          return resolve({ ok: false, code: 'parse_error', message: 'Unexpected response from Gumroad.' })
+        }
+      })
+    })
+    req.on('timeout', () => {
+      req.destroy()
+      resolve({ ok: false, code: 'timeout', message: 'Verification timed out. Check your connection.' })
+    })
+    req.on('error', err => {
+      resolve({ ok: false, code: 'network', message: 'Network error: ' + err.message })
+    })
+    req.write(postData)
+    req.end()
+  })
+})
+
+// ── DEV MODE FLAG ─────────────────────────────────────────────
+// Only true when launched with --dev or FLOATBOARD_DEV=1.
+// Dev keyboard shortcuts (premium toggle, clear license, paste
+// test license) are ONLY registered in the renderer when this is
+// true, so shipped .exe users can never accidentally trigger them.
+ipcMain.handle('is-dev-mode', async () => IS_DEV)
+
 ipcMain.on('set-ignore-mouse', (_, ignore) => {
   if (win) win.setIgnoreMouseEvents(ignore, { forward: true })
 })
@@ -233,6 +365,17 @@ ipcMain.on('snap-window', () => {
 })
 
 app.on('before-quit', () => { app.isQuiting = true })
+
+// Second instance launched (e.g. another `npm start`): reload existing
+// window so renderer changes take effect without manually killing.
+app.on('second-instance', () => {
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+    win.webContents.reload()
+  }
+})
 
 app.whenReady().then(() => {
   createWindow()

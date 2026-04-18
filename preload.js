@@ -11,5 +11,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveData:          (json)  => ipcRenderer.invoke('save-data', json),
   loadData:          ()      => ipcRenderer.invoke('load-data'),
   readClaudeUsage:   ()      => ipcRenderer.invoke('read-claude-usage'),
-  captureBoard:      ()      => ipcRenderer.invoke('capture-board')
+  captureBoard:      ()      => ipcRenderer.invoke('capture-board'),
+  isDevMode:         ()      => ipcRenderer.invoke('is-dev-mode'),
+  setGlassMode:      (v)     => ipcRenderer.send('set-glass-mode', v),
+  verifyLicense:     (opts)  => ipcRenderer.invoke('verify-license', opts),
+  saveScreenshot:    (opts)  => ipcRenderer.invoke('save-screenshot', opts),
+  openScreenshotsFolder: ()  => ipcRenderer.invoke('open-screenshots-folder')
 })
